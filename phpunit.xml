@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.0/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         beStrictAboutTestsThatDoNotTestAnything="false"
+         processIsolation="false"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
+         stopOnFailure="false">
+
+    <testsuites>
+        <testsuite name="TestCase">
+            <directory>tests/TestCase</directory>
+        </testsuite>
+    </testsuites>
+
+    <source ignoreSuppressionOfDeprecations="true">
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+
+    <php>
+        <env name="APP_ENV" value="testing"/>
+    </php>
+
+    <logging>
+        <testdoxHtml outputFile="coverage/testdox.html"/>
+        <testdoxText outputFile="coverage/testdox.txt"/>
+    </logging>
+</phpunit>
