@@ -245,30 +245,54 @@ class ManifestInstallCommand extends Command
 
             foreach ($tags as $tag) {
                 $assetCount = count($pluginData['assets'][$tag]);
-                $choices[] = "  {$pluginName} > {$tag} ({$assetCount} asset(s))";
+                $choices[] = "{$pluginName} > {$tag} ({$assetCount} asset(s))";
                 $choiceMap[$index] = [$pluginName, $tag];
                 $index++;
             }
         }
 
         $io->out('');
-        $selection = $io->askChoice(
-            'What would you like to install?',
-            array_merge(['Cancel'], $choices),
-            '0',
-        );
+        $allChoices = array_merge(['Cancel'], $choices);
+
+        $io->out('<info>What would you like to install?</info>');
+        foreach ($allChoices as $idx => $choice) {
+            $io->out(sprintf('  [%d] %s', $idx, $choice));
+        }
+        $io->out('');
+
+        $maxIndex = count($allChoices) - 1;
+        $input = trim($io->ask('Enter your choice', '0'));
+
+        $selection = null;
+        if (is_numeric($input)) {
+            $num = (int)$input;
+            if ($num >= 0 && $num <= $maxIndex) {
+                $selection = $allChoices[$num];
+            }
+        }
+
+        if ($selection === null) {
+            if (in_array($input, $allChoices, true)) {
+                $selection = $input;
+            } else {
+                $io->error("Invalid choice. Please enter a number between 0 and {$maxIndex}, or the exact choice text.");
+                return [null, null];
+            }
+        }
 
         if ($selection === 'Cancel') {
             return [null, null];
         }
 
-        $selectedIndex = array_search($selection, $choices, true);
+        $selectedIndex = array_search($selection, $allChoices, true);
 
-        if ($selectedIndex === false) {
+        if ($selectedIndex === false || $selectedIndex === 0) {
             return [null, null];
         }
 
-        return $choiceMap[$selectedIndex] ?? [null, null];
+        $choiceIndex = $selectedIndex - 1;
+
+        return $choiceMap[$choiceIndex] ?? [null, null];
     }
 
     /**
