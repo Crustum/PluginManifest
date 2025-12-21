@@ -277,6 +277,41 @@ Merges configuration into existing config files while **preserving comments**.
 
 This operation preserves all comments in the original file and skips merging if the key already exists. It supports deeply nested arrays and automatically converts values to short array syntax for consistency. Once installed, the merge won't be repeated as it's tracked in the registry.
 
+**Deep merging with dot-notation:**
+
+You can merge into nested structures using dot-notation paths:
+
+```php
+// Existing config file has:
+// 'Notification' => [
+//     'channels' => [
+//         'database' => [...],
+//         'mail' => [...],
+//     ],
+// ]
+
+// Add a new channel using dot-notation
+static::manifestConfigMerge('Notification.channels.slack', [
+    'className' => 'Crustum/NotificationSlack.Slack',
+    'webhook_url' => RawValue::raw("env('SLACK_WEBHOOK_URL')"),
+]);
+```
+
+**Preserving env() calls:**
+
+Use `RawValue::raw()` wrapper to preserve PHP expressions:
+
+```php
+use Crustum\PluginManifest\Manifest\RawValue;
+
+static::manifestConfigMerge('Database.default', [
+    'host' => RawValue::raw("env('DB_HOST', 'localhost')"),
+    'username' => RawValue::raw("env('DB_USER', 'root')"),
+    'password' => RawValue::raw("env('DB_PASSWORD')"),
+    'database' => RawValue::raw("env('DB_NAME', 'myapp')"),
+]);
+```
+
 **Example output:**
 ```php
 <?php
@@ -296,6 +331,22 @@ return [
     ],
 ];
 ```
+
+**Using RawValue to preserve env() calls:**
+
+When merging configuration that includes `env()` calls or other PHP expressions, wrap them with `RawValue::raw()` to prevent evaluation:
+
+```php
+use Crustum\PluginManifest\Manifest\RawValue;
+
+static::manifestConfigMerge('Database.default', [
+    'host' => RawValue::raw("env('DB_HOST', 'localhost')"),
+    'username' => RawValue::raw("env('DB_USER', 'root')"),
+    'password' => RawValue::raw("env('DB_PASSWORD')"),
+]);
+```
+
+This ensures the config file contains the actual `env()` calls instead of `NULL` values.
 
 <a name="migration-handling"></a>
 ## Migration Handling
@@ -673,6 +724,7 @@ namespace Monitor;
 use Cake\Core\BasePlugin;
 use PluginManifest\Manifest\ManifestInterface;
 use PluginManifest\Manifest\ManifestTrait;
+use Crustum\PluginManifest\Manifest\RawValue;
 
 class MonitorPlugin extends BasePlugin implements ManifestInterface
 {
@@ -723,8 +775,8 @@ class MonitorPlugin extends BasePlugin implements ManifestInterface
                 [
                     'enabled' => true,
                     'redis' => [
-                        'host' => env('MONITOR_REDIS_HOST', '127.0.0.1'),
-                        'port' => env('MONITOR_REDIS_PORT', 6379),
+                        'host' => RawValue::raw("env('MONITOR_REDIS_HOST', '127.0.0.1')"),
+                        'port' => RawValue::raw("env('MONITOR_REDIS_PORT', 6379)"),
                     ],
                     'workers' => [
                         'default' => 3,
@@ -903,7 +955,7 @@ Creates an `append-env` operation.
 
 ```php
 static::manifestConfigMerge(
-    string $key,                     // Config key
+    string $key,                     // Config key (supports dot-notation for nested paths)
     mixed $value,                    // Config value
     string $configFile = 'app_local.php', // Target config file
     array $options = [],             // Additional options
@@ -912,6 +964,53 @@ static::manifestConfigMerge(
 ```
 
 Creates a `merge` operation that preserves comments.
+
+**Dot-notation paths for deep merging:**
+
+The `$key` parameter supports dot-notation to merge into nested structures:
+
+```php
+// Top-level key
+static::manifestConfigMerge('MyPlugin', ['enabled' => true]);
+
+// Nested key
+static::manifestConfigMerge('Notification.channels', [
+    'slack' => [
+        'className' => 'Crustum/NotificationSlack.Slack',
+    ],
+]);
+
+// Deeply nested key
+static::manifestConfigMerge('Notification.channels.slack', [
+    'className' => 'Crustum/NotificationSlack.Slack',
+    'webhook_url' => RawValue::raw("env('SLACK_WEBHOOK_URL')"),
+]);
+```
+
+**Preserving env() calls with RawValue:**
+
+Use `RawValue::raw()` to preserve PHP expressions like `env()` calls that should not be evaluated:
+
+```php
+use Crustum\PluginManifest\Manifest\RawValue;
+
+static::manifestConfigMerge('Redis', [
+    'host' => RawValue::raw("env('MONITOR_REDIS_HOST', '127.0.0.1')"),
+    'port' => 6379,
+    'password' => RawValue::raw("env('MONITOR_REDIS_PASSWORD')"),
+]);
+```
+
+This will output in the config file as:
+```php
+'Redis' => [
+    'host' => env('MONITOR_REDIS_HOST', '127.0.0.1'),
+    'port' => 6379,
+    'password' => env('MONITOR_REDIS_PASSWORD'),
+],
+```
+
+Without `RawValue`, `env()` calls would be evaluated to `NULL` when the config is loaded.
 
 ### manifestWebroot()
 
@@ -1041,12 +1140,14 @@ return [
 Use environment variables with defaults in merged configs:
 
 ```php
+use Crustum\PluginManifest\Manifest\RawValue;
+
 static::manifestConfigMerge(
     'YourPlugin',
     [
-        'api_key' => env('YOUR_PLUGIN_API_KEY', ''),
-        'timeout' => env('YOUR_PLUGIN_TIMEOUT', 30),
-        'enabled' => env('YOUR_PLUGIN_ENABLED', true),
+        'api_key' => RawValue::raw("env('YOUR_PLUGIN_API_KEY', '')"),
+        'timeout' => RawValue::raw("env('YOUR_PLUGIN_TIMEOUT', 30)"),
+        'enabled' => RawValue::raw("env('YOUR_PLUGIN_ENABLED', true)"),
     ],
     CONFIG . 'app_local.php',
     [],
@@ -1109,4 +1210,3 @@ Status types:
 ## License
 
 Licensed under the MIT License.
-

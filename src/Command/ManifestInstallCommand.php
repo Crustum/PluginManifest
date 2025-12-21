@@ -17,6 +17,7 @@ use Crustum\PluginManifest\Manifest\Installer;
 use Crustum\PluginManifest\Manifest\InstallResult;
 use Crustum\PluginManifest\Manifest\ManifestInterface;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
+use Crustum\PluginManifest\Manifest\OperationType;
 use Exception;
 
 /**
@@ -220,7 +221,10 @@ class ManifestInstallCommand extends Command
     }
 
     /**
-     * Prompt user to select what to install
+     * Prompt user to select what to install (two-level menu)
+     *
+     * First level: Select plugin
+     * Second level: Select tag/assets for that plugin
      *
      * @param \Cake\Console\ConsoleIo $io Console IO
      * @param array<string, array<string, mixed>> $plugins Available plugins
@@ -228,47 +232,81 @@ class ManifestInstallCommand extends Command
      */
     protected function promptForSelection(ConsoleIo $io, array $plugins): array
     {
-        $io->out('<info>Available plugins with publishable assets:</info>');
+        $pluginNames = array_keys($plugins);
+
+        $io->out('<info>Select a plugin:</info>');
         $io->out('');
 
-        $choices = [];
-        $choiceMap = [];
-        $index = 0;
-
-        foreach ($plugins as $pluginName => $pluginData) {
-            $tags = array_keys($pluginData['assets']);
-            $io->out("  <warning>{$pluginName}</warning>: " . implode(', ', $tags));
-
-            $choices[] = "All from {$pluginName}";
-            $choiceMap[$index] = [$pluginName, null];
-            $index++;
-
+        $pluginChoices = ['Cancel'];
+        foreach ($pluginNames as $pluginName) {
+            $tags = array_keys($plugins[$pluginName]['assets']);
+            $totalAssets = 0;
             foreach ($tags as $tag) {
-                $assetCount = count($pluginData['assets'][$tag]);
-                $choices[] = "  {$pluginName} > {$tag} ({$assetCount} asset(s))";
-                $choiceMap[$index] = [$pluginName, $tag];
-                $index++;
+                $totalAssets += count($plugins[$pluginName]['assets'][$tag]);
+            }
+            $pluginChoices[] = "{$pluginName} ({$totalAssets} asset(s) in " . count($tags) . ' tag(s))';
+        }
+
+        foreach ($pluginChoices as $idx => $choice) {
+            $io->out(sprintf('  [%d] %s', $idx, $choice));
+        }
+        $io->out('');
+
+        $maxIndex = count($pluginChoices) - 1;
+        $input = trim($io->ask('Enter your choice', '0'));
+
+        $selectedPluginIndex = null;
+        if (is_numeric($input)) {
+            $num = (int)$input;
+            if ($num >= 0 && $num <= $maxIndex) {
+                $selectedPluginIndex = $num;
             }
         }
 
+        if ($selectedPluginIndex === null || $selectedPluginIndex === 0) {
+            return [null, null];
+        }
+
+        $selectedPluginName = $pluginNames[$selectedPluginIndex - 1];
+        $pluginData = $plugins[$selectedPluginName];
+
         $io->out('');
-        $selection = $io->askChoice(
-            'What would you like to install?',
-            array_merge(['Cancel'], $choices),
-            '0',
-        );
+        $io->out("<info>Select assets from <warning>{$selectedPluginName}</warning>:</info>");
+        $io->out('');
 
-        if ($selection === 'Cancel') {
+        $tagChoices = ['All assets', 'Back'];
+        $tagMap = [null, null];
+
+        $tags = array_keys($pluginData['assets']);
+        foreach ($tags as $tag) {
+            $assetCount = count($pluginData['assets'][$tag]);
+            $tagChoices[] = "{$tag} ({$assetCount} asset(s))";
+            $tagMap[] = $tag;
+        }
+
+        foreach ($tagChoices as $idx => $choice) {
+            $io->out(sprintf('  [%d] %s', $idx, $choice));
+        }
+        $io->out('');
+
+        $maxTagIndex = count($tagChoices) - 1;
+        $tagInput = trim($io->ask('Enter your choice', '0'));
+
+        $selectedTagIndex = null;
+        if (is_numeric($tagInput)) {
+            $num = (int)$tagInput;
+            if ($num >= 0 && $num <= $maxTagIndex) {
+                $selectedTagIndex = $num;
+            }
+        }
+
+        if ($selectedTagIndex === null || $selectedTagIndex === 1) {
             return [null, null];
         }
 
-        $selectedIndex = array_search($selection, $choices, true);
+        $selectedTag = $tagMap[$selectedTagIndex] ?? null;
 
-        if ($selectedIndex === false) {
-            return [null, null];
-        }
-
-        return $choiceMap[$selectedIndex] ?? [null, null];
+        return [$selectedPluginName, $selectedTag];
     }
 
     /**
@@ -355,7 +393,7 @@ class ManifestInstallCommand extends Command
                 if ($result->success) {
                     $successCount++;
 
-                    if (!$dryRun) {
+                    if (!$dryRun && ($asset['type'] ?? '') !== OperationType::DEPENDENCIES) {
                         if ($result->getBatchResults() !== null) {
                             foreach ($result->getBatchResults() as $batchResult) {
                                 if ($batchResult->success) {
