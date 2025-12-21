@@ -278,14 +278,6 @@ class Installer
             $options['dry_run'] ?? false,
         );
 
-        if ($result->success && !($options['dry_run'] ?? false)) {
-            $this->manifest->recordInstalled($plugin, 'append', $tag, [
-                'destination' => $asset['destination'],
-                'marker' => $asset['marker'] ?? null,
-                'completed' => true,
-            ]);
-        }
-
         return $result;
     }
 
@@ -301,23 +293,12 @@ class Installer
      */
     protected function installAppendEnv(array $asset, array $options): InstallResult
     {
-        $plugin = $asset['plugin'] ?? 'Unknown';
-        $tag = $asset['tag'] ?? 'envs';
-
         $result = $this->envInstaller->appendVars(
             $asset['destination'],
             $asset['env_vars'],
             $asset['comment'] ?? null,
             $options['dry_run'] ?? false,
         );
-
-        if ($result->success && !($options['dry_run'] ?? false)) {
-            $this->manifest->recordInstalled($plugin, OperationType::APPEND_ENV, $tag, [
-                'destination' => $asset['destination'],
-                'env_vars' => array_keys($asset['env_vars']),
-                'added_count' => count($asset['env_vars']),
-            ]);
-        }
 
         return $result;
     }
@@ -355,14 +336,6 @@ class Installer
             $asset['value'],
             $options['dry_run'] ?? false,
         );
-
-        if ($result->success && !($options['dry_run'] ?? false)) {
-            $this->manifest->recordInstalled($plugin, 'merge', $tag, [
-                'destination' => $asset['destination'],
-                'key' => $asset['key'],
-                'completed' => true,
-            ]);
-        }
 
         return $result;
     }

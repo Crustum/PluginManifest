@@ -5,6 +5,7 @@ namespace Crustum\PluginManifest\Test\TestCase\Manifest;
 
 use Cake\TestSuite\TestCase;
 use Crustum\PluginManifest\Manifest\ConfigMerger;
+use Crustum\PluginManifest\Manifest\RawValue;
 
 class ConfigMergerTest extends TestCase
 {
@@ -229,5 +230,58 @@ class ConfigMergerTest extends TestCase
         $this->assertSame(123, $config['TestPlugin']['number']);
         $this->assertSame(true, $config['TestPlugin']['boolean']);
         $this->assertSame(null, $config['TestPlugin']['null']);
+    }
+
+    public function testMergeDeepNestedPath(): void
+    {
+        $file = $this->testDir . 'notification.php';
+        $content = "<?php\n\ndeclare(strict_types=1);\n\nreturn [\n    'Notification' => [\n        'channels' => [\n            'database' => [\n                'className' => 'Crustum/Notification.Database',\n            ],\n            'mail' => [\n                'className' => 'Crustum/Notification.Mail',\n                'profile' => 'default',\n            ],\n        ],\n    ],\n];\n";
+        file_put_contents($file, $content);
+
+        $slackConfig = [
+            'className' => 'Crustum/NotificationSlack.Slack',
+            'webhook_url' => RawValue::raw("env('SLACK_WEBHOOK_URL')"),
+        ];
+
+        $result = $this->merger->merge($file, 'Notification.channels.slack', $slackConfig);
+
+        $this->assertTrue($result->success);
+        $this->assertEquals('merged', $result->status);
+
+        $config = require $file;
+        $this->assertArrayHasKey('Notification', $config);
+        $this->assertArrayHasKey('channels', $config['Notification']);
+        $this->assertArrayHasKey('slack', $config['Notification']['channels']);
+        $this->assertEquals('Crustum/NotificationSlack.Slack', $config['Notification']['channels']['slack']['className']);
+
+        $fileContent = file_get_contents($file);
+        $this->assertStringContainsString("env('SLACK_WEBHOOK_URL')", $fileContent);
+        $this->assertStringNotContainsString('NULL', $fileContent);
+    }
+
+    public function testMergeWithRawValue(): void
+    {
+        $file = $this->testDir . 'app.php';
+        file_put_contents($file, "<?php\n\nreturn [\n];\n");
+
+        $config = [
+            'host' => RawValue::raw("env('MONITOR_REDIS_HOST', '127.0.0.1')"),
+            'port' => 6379,
+            'password' => RawValue::raw("env('MONITOR_REDIS_PASSWORD')"),
+        ];
+
+        $result = $this->merger->merge($file, 'Redis', $config);
+
+        $this->assertTrue($result->success);
+
+        $fileContent = file_get_contents($file);
+        $this->assertStringContainsString("env('MONITOR_REDIS_HOST', '127.0.0.1')", $fileContent);
+        $this->assertStringContainsString("env('MONITOR_REDIS_PASSWORD')", $fileContent);
+        $this->assertStringContainsString("'port' => 6379", $fileContent);
+        $this->assertStringNotContainsString('NULL', $fileContent);
+
+        $loadedConfig = require $file;
+        $this->assertArrayHasKey('Redis', $loadedConfig);
+        $this->assertEquals(6379, $loadedConfig['Redis']['port']);
     }
 }

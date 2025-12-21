@@ -21,12 +21,12 @@ class DependencyInstaller
      *
      * @param \Crustum\PluginManifest\Manifest\DependencyResolver $resolver
      * @param \Crustum\PluginManifest\Manifest\Installer $installer
-     * @param \Crustum\PluginManifest\Manifest\ManifestRegistry $registry
+     * @param \Crustum\PluginManifest\Manifest\ManifestRegistry $manifest
      */
     public function __construct(
         protected DependencyResolver $resolver,
         protected Installer $installer,
-        protected ManifestRegistry $registry,
+        protected ManifestRegistry $manifest,
     ) {
     }
 
@@ -319,7 +319,7 @@ class DependencyInstaller
                 $installed[$pluginName] = true;
 
                 if ($parentPlugin !== '' && !($options['dry_run'] ?? false)) {
-                    $this->registry->recordDependency(
+                    $this->manifest->recordDependency(
                         $parentPlugin,
                         $pluginName,
                         $allDependencies[$pluginName],
@@ -383,8 +383,9 @@ class DependencyInstaller
                 );
             }
 
+            $actualPluginName = $this->getActualPluginName($pluginClass, $pluginName);
             $assets = $pluginClass::manifest();
-            $organizedAssets = $this->organizeAssetsByTag($assets, $pluginName);
+            $organizedAssets = $this->organizeAssetsByTag($assets, $actualPluginName);
 
             $tagsToInstall = $dependencyConfig['tags'] ?? null;
             if ($tagsToInstall === null) {
@@ -410,6 +411,10 @@ class DependencyInstaller
 
                 if ($result->success) {
                     $successCount++;
+
+                    if (!($options['dry_run'] ?? false)) {
+                        $this->recordAssetInstallation($actualPluginName, $asset, $result);
+                    }
                 } else {
                     $errorCount++;
                 }
@@ -417,7 +422,7 @@ class DependencyInstaller
                 $this->displayResult($io, $result);
             }
 
-            $message = "{$pluginName}: {$successCount} installed, {$errorCount} failed";
+            $message = "{$actualPluginName}: {$successCount} installed, {$errorCount} failed";
 
             return new InstallResult(
                 $errorCount === 0,
@@ -435,6 +440,32 @@ class DependencyInstaller
                 "Failed to install {$pluginName}: " . $e->getMessage(),
             );
         }
+    }
+
+    /**
+     * Get the actual plugin name as registered in CakePHP
+     *
+     * Looks up the plugin name from Plugin::loaded() by matching the plugin class
+     * to ensure it matches how CakePHP knows the plugin.
+     *
+     * @param string $pluginClass Plugin class name
+     * @param string $fallbackName Fallback name if not found
+     * @return string Actual plugin name from Plugin::loaded()
+     */
+    protected function getActualPluginName(string $pluginClass, string $fallbackName): string
+    {
+        foreach (Plugin::loaded() as $loadedName) {
+            try {
+                $plugin = Plugin::getCollection()->get($loadedName);
+                if (get_class($plugin) === $pluginClass) {
+                    return $loadedName;
+                }
+            } catch (Exception) {
+                continue;
+            }
+        }
+
+        return $fallbackName;
     }
 
     /**
@@ -489,5 +520,50 @@ class DependencyInstaller
         }
 
         return '...' . substr($path, -$maxLength + 3);
+    }
+
+    /**
+     * Record asset installation in the manifest registry
+     *
+     * @param string $pluginName Plugin name
+     * @param array<string, mixed> $asset Asset definition
+     * @param \Crustum\PluginManifest\Manifest\InstallResult $result Installation result
+     * @return void
+     */
+    protected function recordAssetInstallation(string $pluginName, array $asset, InstallResult $result): void
+    {
+        $tag = $asset['tag'] ?? 'default';
+        $type = $asset['type'] ?? 'unknown';
+
+        if ($result->getBatchResults() !== null) {
+            foreach ($result->getBatchResults() as $batchResult) {
+                if ($batchResult->success) {
+                    $assetData = [
+                        'destination' => $batchResult->destination,
+                        'source' => $batchResult->source,
+                        'completed' => true,
+                    ];
+
+                    $this->manifest->recordInstalled($pluginName, $type, $tag, $assetData);
+                }
+            }
+        } else {
+            $assetData = [
+                'destination' => $result->destination ?? $asset['destination'] ?? null,
+                'completed' => true,
+            ];
+
+            if (isset($asset['source'])) {
+                $assetData['source'] = $asset['source'];
+            }
+            if (isset($asset['marker'])) {
+                $assetData['marker'] = $asset['marker'];
+            }
+            if (isset($asset['key'])) {
+                $assetData['key'] = $asset['key'];
+            }
+
+            $this->manifest->recordInstalled($pluginName, $type, $tag, $assetData);
+        }
     }
 }
