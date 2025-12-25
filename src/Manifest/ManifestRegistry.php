@@ -546,7 +546,7 @@ class ManifestRegistry
         $statuses = [];
 
         foreach ($manifest as $pluginName => $operations) {
-            if ($pluginName === '_dependencies') {
+            if ($pluginName === '_dependencies' || $pluginName === '_star_prompts') {
                 continue;
             }
 
@@ -559,5 +559,39 @@ class ManifestRegistry
         }
 
         return $statuses;
+    }
+
+    /**
+     * Record that star prompt was shown for a plugin
+     *
+     * @param string $plugin Plugin name
+     * @return void
+     */
+    public function recordStarPromptShown(string $plugin): void
+    {
+        $manifest = $this->load();
+
+        if (!isset($manifest['_star_prompts'])) {
+            $manifest['_star_prompts'] = [];
+        }
+
+        $manifest['_star_prompts'][$plugin] = [
+            'asked_at' => date('Y-m-d H:i:s'),
+        ];
+
+        $this->save($manifest);
+    }
+
+    /**
+     * Check if star prompt was already shown for a plugin
+     *
+     * @param string $plugin Plugin name
+     * @return bool
+     */
+    public function hasStarPromptBeenShown(string $plugin): bool
+    {
+        $manifest = $this->load();
+
+        return isset($manifest['_star_prompts'][$plugin]);
     }
 }

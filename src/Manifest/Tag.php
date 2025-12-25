@@ -16,4 +16,5 @@ class Tag
     public const BOOTSTRAP = 'bootstrap';
     public const ENVS = 'envs';
     public const DEPENDENCIES = 'dependencies';
+    public const STAR_REPO = 'star-repo';
 }

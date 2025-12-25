@@ -16,4 +16,5 @@ class OperationType
     public const APPEND_ENV = 'append-env';
     public const MERGE = 'merge';
     public const DEPENDENCIES = 'dependencies';
+    public const STAR_REPO = 'star-repo';
 }
