@@ -7,17 +7,18 @@ use Cake\Command\Command;
 use Cake\Console\Arguments;
 use Cake\Console\ConsoleIo;
 use Cake\Console\ConsoleOptionParser;
-use Cake\Core\Plugin;
+use Crustum\PluginManifest\Command\Helper\Installation;
+use Crustum\PluginManifest\Command\Helper\OutputFormatter;
+use Crustum\PluginManifest\Command\Helper\PluginDiscovery;
+use Crustum\PluginManifest\Command\Helper\StarRepo;
 use Crustum\PluginManifest\Manifest\BootstrapAppender;
 use Crustum\PluginManifest\Manifest\ConfigMerger;
 use Crustum\PluginManifest\Manifest\DependencyInstaller;
 use Crustum\PluginManifest\Manifest\DependencyResolver;
 use Crustum\PluginManifest\Manifest\EnvInstaller;
 use Crustum\PluginManifest\Manifest\Installer;
-use Crustum\PluginManifest\Manifest\InstallResult;
-use Crustum\PluginManifest\Manifest\ManifestInterface;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
-use Exception;
+use Crustum\PluginManifest\Manifest\Tag;
 
 /**
  * ManifestInstall command
@@ -118,7 +119,8 @@ class ManifestInstallCommand extends Command
             $io->out('');
         }
 
-        $plugins = $this->discoverPublishablePlugins($io);
+        $pluginDiscovery = new PluginDiscovery();
+        $plugins = $pluginDiscovery->discoverPublishablePlugins($io);
 
         if (empty($plugins)) {
             $io->warning('No plugins with publishable assets found.');
@@ -147,8 +149,10 @@ class ManifestInstallCommand extends Command
             'console_io' => $io,
         ];
 
+        $installation = $this->createInstallationHelper($installer, $manifest);
+
         if ($all) {
-            return $this->installAllPlugins($io, $plugins, $options, $installer, $manifest);
+            return $installation->installAllPlugins($io, $plugins, $options);
         }
 
         if ($pluginFilter && !isset($plugins[$pluginFilter])) {
@@ -160,67 +164,29 @@ class ManifestInstallCommand extends Command
         $pluginName = is_string($pluginFilter) ? $pluginFilter : '';
         $tag = is_string($tagFilter) ? $tagFilter : null;
 
-        return $this->installPlugin($io, $pluginName, $plugins[$pluginName], $tag, $options, $installer, $manifest);
+        return $installation->installPlugin($io, $pluginName, $plugins[$pluginName], $tag, $options);
     }
 
     /**
-     * Discover plugins that implement ManifestInterface
+     * Create installation helper with dependencies
      *
-     * @param \Cake\Console\ConsoleIo $io Console IO
-     * @return array<string, array<string, mixed>> Plugin data keyed by plugin name
+     * @param \Crustum\PluginManifest\Manifest\Installer $installer Installer instance
+     * @param \Crustum\PluginManifest\Manifest\ManifestRegistry $registry Registry
+     * @return \Crustum\PluginManifest\Command\Helper\Installation Installation helper
      */
-    protected function discoverPublishablePlugins(ConsoleIo $io): array
+    protected function createInstallationHelper(Installer $installer, ManifestRegistry $registry): Installation
     {
-        $plugins = [];
+        $outputFormatter = new OutputFormatter();
+        $starRepo = new StarRepo($registry);
 
-        foreach (Plugin::loaded() as $pluginName) {
-            $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = get_class($plugin);
-
-            if (is_subclass_of($pluginClass, ManifestInterface::class)) {
-                try {
-                    $assets = $pluginClass::manifest();
-                    if (!empty($assets)) {
-                        $plugins[$pluginName] = [
-                            'class' => $pluginClass,
-                            'assets' => $this->organizeAssetsByTag($assets, $pluginName),
-                        ];
-                    }
-                } catch (Exception $e) {
-                    $io->warning("Failed to get assets from {$pluginName}: " . $e->getMessage());
-                }
-            }
-        }
-
-        return $plugins;
+        return new Installation($installer, $registry, $outputFormatter, $starRepo);
     }
 
     /**
-     * Organize assets by tag for easier filtering
+     * Prompt user to select what to install (two-level menu)
      *
-     * @param array<int, array<string, mixed>> $assets Asset definitions
-     * @param string $pluginName Plugin name
-     * @return array<string, array<int, array<string, mixed>>> Assets organized by tag
-     */
-    protected function organizeAssetsByTag(array $assets, string $pluginName): array
-    {
-        $organized = [];
-
-        foreach ($assets as $asset) {
-            $tag = $asset['tag'] ?? 'default';
-            if (!isset($organized[$tag])) {
-                $organized[$tag] = [];
-            }
-
-            $asset['plugin'] = $pluginName;
-            $organized[$tag][] = $asset;
-        }
-
-        return $organized;
-    }
-
-    /**
-     * Prompt user to select what to install
+     * First level: Select plugin
+     * Second level: Select tag/assets for that plugin
      *
      * @param \Cake\Console\ConsoleIo $io Console IO
      * @param array<string, array<string, mixed>> $plugins Available plugins
@@ -228,290 +194,114 @@ class ManifestInstallCommand extends Command
      */
     protected function promptForSelection(ConsoleIo $io, array $plugins): array
     {
-        $io->out('<info>Available plugins with publishable assets:</info>');
-        $io->out('');
+        $selectedPluginName = $this->promptForPlugin($io, $plugins);
 
-        $choices = [];
-        $choiceMap = [];
-        $index = 0;
-
-        foreach ($plugins as $pluginName => $pluginData) {
-            $tags = array_keys($pluginData['assets']);
-            $io->out("  <warning>{$pluginName}</warning>: " . implode(', ', $tags));
-
-            $choices[] = "All from {$pluginName}";
-            $choiceMap[$index] = [$pluginName, null];
-            $index++;
-
-            foreach ($tags as $tag) {
-                $assetCount = count($pluginData['assets'][$tag]);
-                $choices[] = "{$pluginName} > {$tag} ({$assetCount} asset(s))";
-                $choiceMap[$index] = [$pluginName, $tag];
-                $index++;
-            }
+        if ($selectedPluginName === null) {
+            return [null, null];
         }
 
-        $io->out('');
-        $allChoices = array_merge(['Cancel'], $choices);
+        $selectedTag = $this->promptForTag($io, $selectedPluginName, $plugins[$selectedPluginName]);
 
-        $io->out('<info>What would you like to install?</info>');
-        foreach ($allChoices as $idx => $choice) {
+        return [$selectedPluginName, $selectedTag];
+    }
+
+    /**
+     * Prompt user to select a plugin
+     *
+     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param array<string, array<string, mixed>> $plugins Available plugins
+     * @return string|null Selected plugin name or null if cancelled
+     */
+    protected function promptForPlugin(ConsoleIo $io, array $plugins): ?string
+    {
+        $pluginNames = array_keys($plugins);
+
+        $io->out('<info>Select a plugin:</info>');
+        $io->out('');
+
+        $pluginChoices = ['Cancel'];
+        foreach ($pluginNames as $pluginName) {
+            $tags = array_keys($plugins[$pluginName]['assets']);
+            $totalAssets = 0;
+            foreach ($tags as $tag) {
+                $totalAssets += count($plugins[$pluginName]['assets'][$tag]);
+            }
+            $pluginChoices[] = "{$pluginName} ({$totalAssets} asset(s) in " . count($tags) . ' tag(s))';
+        }
+
+        foreach ($pluginChoices as $idx => $choice) {
             $io->out(sprintf('  [%d] %s', $idx, $choice));
         }
         $io->out('');
 
-        $maxIndex = count($allChoices) - 1;
+        $maxIndex = count($pluginChoices) - 1;
         $input = trim($io->ask('Enter your choice', '0'));
 
-        $selection = null;
+        $selectedPluginIndex = null;
         if (is_numeric($input)) {
             $num = (int)$input;
             if ($num >= 0 && $num <= $maxIndex) {
-                $selection = $allChoices[$num];
+                $selectedPluginIndex = $num;
             }
         }
 
-        if ($selection === null) {
-            if (in_array($input, $allChoices, true)) {
-                $selection = $input;
-            } else {
-                $io->error("Invalid choice. Please enter a number between 0 and {$maxIndex}, or the exact choice text.");
-                return [null, null];
-            }
+        if ($selectedPluginIndex === null || $selectedPluginIndex === 0) {
+            return null;
         }
 
-        if ($selection === 'Cancel') {
-            return [null, null];
-        }
-
-        $selectedIndex = array_search($selection, $allChoices, true);
-
-        if ($selectedIndex === false || $selectedIndex === 0) {
-            return [null, null];
-        }
-
-        $choiceIndex = $selectedIndex - 1;
-
-        return $choiceMap[$choiceIndex] ?? [null, null];
+        return $pluginNames[$selectedPluginIndex - 1];
     }
 
     /**
-     * Install assets from all plugins
+     * Prompt user to select a tag for the selected plugin
      *
      * @param \Cake\Console\ConsoleIo $io Console IO
-     * @param array<string, array<string, mixed>> $plugins Plugin data
-     * @param array<string, mixed> $options Install options
-     * @param \Crustum\PluginManifest\Manifest\Installer $installer Installer instance
-     * @return int Exit code
-     */
-    protected function installAllPlugins(ConsoleIo $io, array $plugins, array $options, Installer $installer, ManifestRegistry $registry): int
-    {
-        $totalSuccess = 0;
-        $totalErrors = 0;
-
-        foreach ($plugins as $pluginName => $pluginData) {
-            $io->out('');
-            $io->out("<info>Installing assets from {$pluginName}...</info>");
-
-            $result = $this->installPlugin($io, $pluginName, $pluginData, null, $options, $installer, $registry);
-
-            if ($result === static::CODE_SUCCESS) {
-                $totalSuccess++;
-            } else {
-                $totalErrors++;
-            }
-        }
-
-        $io->out('');
-        $io->out('<info>Summary:</info>');
-        $io->out('  Plugins processed: ' . count($plugins));
-        $io->out("  Successful: {$totalSuccess}");
-        $io->out("  Errors: {$totalErrors}");
-
-        return $totalErrors > 0 ? static::CODE_ERROR : static::CODE_SUCCESS;
-    }
-
-    /**
-     * Install assets from a single plugin
-     *
-     * @param \Cake\Console\ConsoleIo $io Console IO
-     * @param string $pluginName Plugin name
+     * @param string $pluginName Selected plugin name
      * @param array<string, mixed> $pluginData Plugin data
-     * @param string|null $tagFilter Tag filter
-     * @param array<string, mixed> $options Install options
-     * @param \Crustum\PluginManifest\Manifest\Installer $installer Installer instance
-     * @return int Exit code
+     * @return string|null Selected tag name or null if cancelled/back
      */
-    protected function installPlugin(
-        ConsoleIo $io,
-        string $pluginName,
-        array $pluginData,
-        ?string $tagFilter,
-        array $options,
-        Installer $installer,
-        ManifestRegistry $registry,
-    ): int {
-        $successCount = 0;
-        $skipCount = 0;
-        $errorCount = 0;
-        $dryRun = $options['dry_run'] ?? false;
-
-        $assets = $pluginData['assets'];
-
-        if ($tagFilter && !isset($assets[$tagFilter])) {
-            $io->error("Tag '{$tagFilter}' not found in {$pluginName}.");
-            $io->out('Available tags: ' . implode(', ', array_keys($assets)));
-
-            return static::CODE_ERROR;
-        }
-
-        $tagsToInstall = $tagFilter ? [$tagFilter => $assets[$tagFilter]] : $assets;
-
-        foreach ($tagsToInstall as $tag => $tagAssets) {
-            $io->out('');
-            $io->out("<comment>Tag: {$tag}</comment>");
-
-            foreach ($tagAssets as $asset) {
-                $result = $installer->install($asset, $options);
-
-                $this->displayResult($io, $result);
-
-                if ($result->success) {
-                    $successCount++;
-
-                    if (!$dryRun) {
-                        if ($result->getBatchResults() !== null) {
-                            foreach ($result->getBatchResults() as $batchResult) {
-                                if ($batchResult->success) {
-                                    $assetData = [
-                                        'destination' => $batchResult->destination,
-                                        'source' => $batchResult->source,
-                                        'completed' => true,
-                                    ];
-
-                                    $registry->recordInstalled(
-                                        $pluginName,
-                                        $asset['type'],
-                                        $tag,
-                                        $assetData,
-                                    );
-                                }
-                            }
-                        } else {
-                            $assetData = [
-                                'destination' => $result->destination ?? $asset['destination'] ?? null,
-                                'completed' => true,
-                            ];
-
-                            if (isset($asset['source'])) {
-                                $assetData['source'] = $asset['source'];
-                            }
-                            if (isset($asset['marker'])) {
-                                $assetData['marker'] = $asset['marker'];
-                            }
-                            if (isset($asset['key'])) {
-                                $assetData['key'] = $asset['key'];
-                            }
-
-                            $registry->recordInstalled(
-                                $pluginName,
-                                $asset['type'],
-                                $tag,
-                                $assetData,
-                            );
-                        }
-                    }
-                } elseif ($result->status === 'skipped') {
-                    $skipCount++;
-                } else {
-                    $errorCount++;
-                }
-            }
-        }
-
+    protected function promptForTag(ConsoleIo $io, string $pluginName, array $pluginData): ?string
+    {
         $io->out('');
-        $io->out("<info>{$pluginName} Installation Summary:</info>");
-        $io->out("  Installed: {$successCount}");
-        $io->out("  Skipped: {$skipCount}");
-        $io->out("  Errors: {$errorCount}");
+        $io->out("<info>Select assets from <warning>{$pluginName}</warning>:</info>");
+        $io->out('');
 
-        return $errorCount > 0 ? static::CODE_ERROR : static::CODE_SUCCESS;
-    }
+        $tagChoices = ['All assets', 'Back'];
+        $tagMap = [null, null];
 
-    /**
-     * Display installation result
-     *
-     * @param \Cake\Console\ConsoleIo $io Console IO
-     * @param \Crustum\PluginManifest\Manifest\InstallResult $result Install result
-     * @return void
-     */
-    protected function displayResult(ConsoleIo $io, InstallResult $result): void
-    {
-        $source = $this->truncatePath($result->source, 60);
-        $destination = $this->truncatePath($result->destination, 60);
+        $tags = array_keys($pluginData['assets']);
+        foreach ($tags as $tag) {
+            if ($tag === Tag::STAR_REPO) {
+                continue;
+            }
 
-        $statusColors = [
-            'installed' => 'success',
-            'batch-installed' => 'success',
-            'appended' => 'success',
-            'merged' => 'success',
-            'would-append' => 'info',
-            'would-merge' => 'info',
-            'skipped' => 'warning',
-            'error' => 'error',
-        ];
-
-        $color = $statusColors[$result->status] ?? 'info';
-
-        $message = match ($result->status) {
-            'installed' => "  <{$color}>[✓]</{$color}> {$source} → {$destination}",
-            'batch-installed' => "  <{$color}>[✓]</{$color}> {$result->message}",
-            'appended' => "  <{$color}>[✓]</{$color}> Appended to {$destination}",
-            'merged' => "  <{$color}>[✓]</{$color}> Merged '{$source}' to {$destination}",
-            'would-append' => "  <{$color}>[DRY]</{$color}> Would append to {$destination}",
-            'would-merge' => "  <{$color}>[DRY]</{$color}> Would merge '{$source}' to {$destination}",
-            'skipped' => "  <{$color}>[SKIP]</{$color}> {$destination}" .
-                         ($result->message ? " ({$result->message})" : ''),
-            'error' => "  <{$color}>[✗]</{$color}> {$source}: {$result->message}",
-            default => "  [{$result->status}] {$source}",
-        };
-
-        $io->out($message);
-    }
-
-    /**
-     * Truncate path for display
-     *
-     * @param string $path File path
-     * @param int $maxLength Maximum length
-     * @return string Truncated path
-     */
-    protected function truncatePath(string $path, int $maxLength): string
-    {
-        if (strlen($path) <= $maxLength) {
-            return $path;
+            $assetCount = count($pluginData['assets'][$tag]);
+            $tagChoices[] = "{$tag} ({$assetCount} asset(s))";
+            $tagMap[] = $tag;
         }
 
-        $parts = explode(DS, $path);
-        $filename = array_pop($parts);
-
-        if (strlen($filename) >= $maxLength) {
-            return '...' . substr($filename, -$maxLength + 3);
+        foreach ($tagChoices as $idx => $choice) {
+            $io->out(sprintf('  [%d] %s', $idx, $choice));
         }
+        $io->out('');
 
-        $prefix = '...';
-        $availableLength = $maxLength - strlen($filename) - strlen($prefix) - 1;
+        $maxTagIndex = count($tagChoices) - 1;
+        $tagInput = trim($io->ask('Enter your choice', '0'));
 
-        $truncated = $prefix;
-        for ($i = count($parts) - 1; $i >= 0; $i--) {
-            $part = $parts[$i];
-            if (strlen($truncated) + strlen($part) + 1 <= $availableLength) {
-                $truncated = $prefix . DS . $part . ($truncated === $prefix ? '' : DS . substr($truncated, 4));
-            } else {
-                break;
+        $selectedTagIndex = null;
+        if (is_numeric($tagInput)) {
+            $num = (int)$tagInput;
+            if ($num >= 0 && $num <= $maxTagIndex) {
+                $selectedTagIndex = $num;
             }
         }
 
-        return $truncated . DS . $filename;
+        if ($selectedTagIndex === null || $selectedTagIndex === 1) {
+            return null;
+        }
+
+        $selectedTag = $tagMap[$selectedTagIndex] ?? null;
+
+        return is_string($selectedTag) ? $selectedTag : null;
     }
 }

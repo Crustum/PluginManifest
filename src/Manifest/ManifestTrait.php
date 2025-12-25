@@ -12,6 +12,22 @@ namespace Crustum\PluginManifest\Manifest;
 trait ManifestTrait
 {
     /**
+     * Get plugin name from class name
+     *
+     * Extracts plugin name by removing namespace and 'Plugin' suffix.
+     *
+     * @return string Plugin name
+     */
+    protected static function getPluginName(): string
+    {
+        $pluginName = static::class;
+        $pluginName = substr($pluginName, strrpos($pluginName, '\\') + 1);
+        $pluginName = str_replace('Plugin', '', $pluginName);
+
+        return $pluginName;
+    }
+
+    /**
      * Define migrations to install with plugin namespace
      *
      * Migrations are copied with plugin namespace prefix added to prevent
@@ -28,17 +44,13 @@ trait ManifestTrait
     ): array {
         $destination = $destination ?? CONFIG . 'Migrations';
 
-        $pluginName = static::class;
-        $pluginName = substr($pluginName, strrpos($pluginName, '\\') + 1);
-        $pluginName = str_replace('Plugin', '', $pluginName);
-
         return [[
             'type' => OperationType::COPY,
             'tag' => Tag::MIGRATIONS,
             'source' => $source,
             'destination' => $destination,
             'options' => [
-                'plugin_namespace' => $pluginName,
+                'plugin_namespace' => static::getPluginName(),
                 'rename_with_plugin' => true,
             ],
         ]];
@@ -82,9 +94,7 @@ trait ManifestTrait
         array $envVars,
         ?string $comment = null,
     ): array {
-        $pluginName = static::class;
-        $pluginName = substr($pluginName, strrpos($pluginName, '\\') + 1);
-        $pluginName = str_replace('Plugin', '', $pluginName);
+        $pluginName = static::getPluginName();
 
         $comment = $comment ?? '# ' . $pluginName . ' Configuration';
 
@@ -110,9 +120,7 @@ trait ManifestTrait
     protected static function manifestEnvExample(
         string $source,
     ): array {
-        $pluginName = static::class;
-        $pluginName = substr($pluginName, strrpos($pluginName, '\\') + 1);
-        $pluginName = str_replace('Plugin', '', $pluginName);
+        $pluginName = static::getPluginName();
 
         $destination = ROOT . DS . '.env.' . strtolower($pluginName) . '.example';
 
@@ -137,9 +145,7 @@ trait ManifestTrait
         string $source,
         ?string $destination = null,
     ): array {
-        $pluginName = static::class;
-        $pluginName = substr($pluginName, strrpos($pluginName, '\\') + 1);
-        $pluginName = str_replace('Plugin', '', $pluginName);
+        $pluginName = static::getPluginName();
         $destination = $destination ?? WWW_ROOT . strtolower($pluginName);
 
         return [[
@@ -168,9 +174,7 @@ trait ManifestTrait
         ?string $marker = null,
         string $bootstrapFile = 'bootstrap.php',
     ): array {
-        $pluginName = static::class;
-        $pluginName = substr($pluginName, strrpos($pluginName, '\\') + 1);
-        $pluginName = str_replace('Plugin', '', $pluginName);
+        $pluginName = static::getPluginName();
 
         $marker = $marker ?? '// ' . $pluginName . ' Configuration';
 
@@ -228,17 +232,13 @@ trait ManifestTrait
         array $configValue,
         string $configFile = 'app_local.php',
     ): array {
-        $pluginName = static::class;
-        $pluginName = substr($pluginName, strrpos($pluginName, '\\') + 1);
-        $pluginName = str_replace('Plugin', '', $pluginName);
-
         return [[
             'type' => OperationType::MERGE,
             'tag' => Tag::CONFIG,
             'key' => $configKey,
             'value' => $configValue,
             'destination' => CONFIG . $configFile,
-            'plugin' => $pluginName,
+            'plugin' => static::getPluginName(),
         ]];
     }
 
@@ -253,15 +253,32 @@ trait ManifestTrait
      */
     protected static function manifestDependencies(array $dependencies): array
     {
-        $pluginName = static::class;
-        $pluginName = substr($pluginName, strrpos($pluginName, '\\') + 1);
-        $pluginName = str_replace('Plugin', '', $pluginName);
-
         return [[
             'type' => OperationType::DEPENDENCIES,
             'tag' => Tag::DEPENDENCIES,
             'dependencies' => $dependencies,
-            'plugin' => $pluginName,
+            'plugin' => static::getPluginName(),
+        ]];
+    }
+
+    /**
+     * Enable GitHub star prompt for this plugin
+     *
+     * If not called, the system will attempt to auto-detect the GitHub repo
+     * from Packagist using the composer.json package name.
+     *
+     * @param string|null $vendorSlashRepoName GitHub repository in vendor/repo format (e.g., 'skie/plugin-manifest') or null for auto-detection
+     * @param bool $defaultAnswer Default answer for the prompt (defaults to true)
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function manifestStarRepo(?string $vendorSlashRepoName = null, bool $defaultAnswer = true): array
+    {
+        return [[
+            'type' => OperationType::STAR_REPO,
+            'tag' => Tag::STAR_REPO,
+            'repo' => $vendorSlashRepoName,
+            'default_answer' => $defaultAnswer,
+            'plugin' => static::getPluginName(),
         ]];
     }
 }
