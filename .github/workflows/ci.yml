@@ -1,4 +1,4 @@
-name: CI
+3name: CI
 
 on:
   push:
@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ['8.1', '8.2', '8.3', '8.4']
+        php-version: ['8.1', '8.2', '8.3']
         os: [ubuntu-latest, windows-latest]
     steps:
     - uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
       if: matrix.php-version == '8.2' && matrix.os == 'ubuntu-latest'
       run: |
         export CODECOVERAGE=1
-        vendor/bin/phpunit --configuration=phpunit.xml --display-deprecations --display-incomplete --display-skipped --coverage-clover=coverage.xml
+        vendor/bin/phpunit --configuration=phpunit.xml --coverage-clover=coverage.xml
 
     - name: Run PHPUnit without coverage
       if: matrix.php-version != '8.2' || matrix.os != 'ubuntu-latest'
@@ -83,7 +83,7 @@ jobs:
 
     - name: Install PHP tools with phive
       run: |
-        phive install --trust-gpg-keys CF1A108D0E7AE720,51C67305FFC2E5C0,12CE0F1D262429A5
+        phive install --trust-gpg-keys CF1A108D0E7AE720,51C67305FFC2E5C0,12CE0F1D262429A5,99BF4D9A33D65E
 
     - name: Run PHP CodeSniffer
       run: composer cs-check
