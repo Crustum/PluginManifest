@@ -324,6 +324,36 @@ class InstallerIntegrationTest extends TestCase
         $this->assertStringContainsString('class TestPluginCreateTestTable extends AbstractMigration', $content);
     }
 
+    public function testMigrationInstallationCreatesMissingDestinationDirectory(): void
+    {
+        $sourceDir = $this->testDir . 'source_migrations_missing_dest' . DS;
+        $destDir = $this->testDir . 'nested' . DS . 'config' . DS . 'Migrations' . DS;
+
+        mkdir($sourceDir, 0777, true);
+
+        $migrationContent = "<?php\n\nclass CreateTestTable extends AbstractMigration\n{\n}\n";
+        file_put_contents($sourceDir . '20250101000000_CreateTestTable.php', $migrationContent);
+
+        $asset = [
+            'type' => 'copy',
+            'source' => $sourceDir,
+            'destination' => $destDir,
+            'tag' => 'migrations',
+            'options' => [
+                'rename_with_plugin' => true,
+                'plugin_namespace' => 'TestPlugin',
+            ],
+        ];
+
+        $result = $this->installer->install($asset);
+
+        $this->assertTrue($result->success);
+
+        $installedFile = $destDir . '20250101000000_TestPluginCreateTestTable.php';
+        $this->assertDirectoryExists($destDir);
+        $this->assertFileExists($installedFile);
+    }
+
     public function testMigrationInstallationKeepsPluralClassName(): void
     {
         $sourceDir = $this->testDir . 'source_migrations_plural' . DS;
