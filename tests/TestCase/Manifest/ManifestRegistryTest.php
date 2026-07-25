@@ -9,9 +9,10 @@ use Crustum\PluginManifest\Manifest\ManifestRegistry;
 class ManifestRegistryTest extends TestCase
 {
     protected string $testRegistryFile;
+
     protected ManifestRegistry $registry;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 
@@ -49,7 +50,7 @@ class ManifestRegistryTest extends TestCase
         };
     }
 
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         parent::tearDown();
 

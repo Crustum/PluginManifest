@@ -19,13 +19,13 @@ class DependencyIntegrationTest extends TestCase
 
     protected DependencyResolver $resolver;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
         $this->resolver = new DependencyResolver();
     }
 
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         unset($this->resolver);
         parent::tearDown();
@@ -110,19 +110,13 @@ class DependencyIntegrationTest extends TestCase
             ],
             'ConditionalPlugin' => [
                 'required' => false,
-                'condition' => function () {
-
-                    return true;
-                },
+                'condition' => fn(): bool => true,
                 'tags' => ['migrations'],
                 'reason' => 'Needed when condition is met',
             ],
             'ConditionalPluginFalse' => [
                 'required' => false,
-                'condition' => function () {
-
-                    return false;
-                },
+                'condition' => fn(): bool => false,
                 'tags' => ['migrations'],
                 'reason' => 'Not needed when condition is false',
             ],
@@ -217,10 +211,10 @@ class DependencyIntegrationTest extends TestCase
         $this->assertEquals('PluginA', $order[count($order) - 1]);
 
         // B and D should come after C but before A
-        $cIndex = array_search('PluginC', $order);
-        $bIndex = array_search('PluginB', $order);
-        $dIndex = array_search('PluginD', $order);
-        $aIndex = array_search('PluginA', $order);
+        $cIndex = array_search('PluginC', $order, true);
+        $bIndex = array_search('PluginB', $order, true);
+        $dIndex = array_search('PluginD', $order, true);
+        $aIndex = array_search('PluginA', $order, true);
 
         $this->assertGreaterThan($cIndex, $bIndex);
         $this->assertGreaterThan($cIndex, $dIndex);

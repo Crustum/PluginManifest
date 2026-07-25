@@ -9,9 +9,10 @@ use Crustum\PluginManifest\Manifest\EnvInstaller;
 class EnvInstallerTest extends TestCase
 {
     protected string $testDir;
+
     protected EnvInstaller $installer;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 
@@ -21,7 +22,7 @@ class EnvInstallerTest extends TestCase
         $this->installer = new EnvInstaller();
     }
 
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         parent::tearDown();
 
@@ -48,6 +49,7 @@ class EnvInstallerTest extends TestCase
                 unlink($path);
             }
         }
+
         rmdir($dir);
     }
 
@@ -176,6 +178,7 @@ class EnvInstallerTest extends TestCase
             if (trim($line) === trim($comment)) {
                 $commentFound = true;
             }
+
             if ($commentFound && str_contains($line, 'NEW_VAR=')) {
                 $varFoundAfterComment = true;
                 break;

@@ -86,16 +86,16 @@ class Installer
         if (file_exists($destination) && !($options['force'] ?? false)) {
             if ($options['existing'] ?? false) {
                 return $this->installFile($source, $destination, array_merge($options, $assetOptions));
-            } else {
-                return new InstallResult(false, $source, $destination, 'skipped', 'File exists (use --force to overwrite)');
             }
+
+            return new InstallResult(false, $source, $destination, 'skipped', 'File exists (use --force to overwrite)');
         }
 
         if (is_dir($source)) {
             return $this->installDirectory($source, $destination, array_merge($options, $assetOptions));
-        } else {
-            return $this->installFile($source, $destination, array_merge($options, $assetOptions));
         }
+
+        return $this->installFile($source, $destination, array_merge($options, $assetOptions));
     }
 
     /**
@@ -126,7 +126,15 @@ class Installer
 
         $files = scandir($sourceDir);
         foreach ($files as $file) {
-            if ($file === '.' || $file === '..' || $file === 'schema-dump-default.lock') {
+            if ($file === '.') {
+                continue;
+            }
+
+            if ($file === '..') {
+                continue;
+            }
+
+            if ($file === 'schema-dump-default.lock') {
                 continue;
             }
 
@@ -191,10 +199,9 @@ class Installer
         $migrationName = $matches[2];
 
         $plugin = Inflector::camelize(str_replace('/', '_', $pluginName));
-        $className = Inflector::classify($migrationName);
-        $newClassName = Inflector::classify($plugin . '_' . $migrationName);
+        $newClassName = $plugin . $migrationName;
 
-        $newBasename = $timestamp . '_' . $plugin . $className . '.php';
+        $newBasename = $timestamp . '_' . $newClassName . '.php';
         $destinationFile = $destinationDir . DS . $newBasename;
 
         if (file_exists($destinationFile)) {
@@ -206,13 +213,25 @@ class Installer
             return new InstallResult(false, $sourceFile, $destinationFile, 'error', 'Could not read source file');
         }
 
-        $content = preg_replace(
-            '/class\s+' . preg_quote($className, '/') . '\s+extends/',
+        $replaced = preg_replace(
+            '/class\s+' . preg_quote($migrationName, '/') . '\s+extends/',
             'class ' . $newClassName . ' extends',
             $content,
+            1,
+            $count,
         );
 
-        file_put_contents($destinationFile, $content);
+        if ($replaced === null || $count === 0) {
+            return new InstallResult(
+                false,
+                $sourceFile,
+                $destinationFile,
+                'error',
+                "Could not rename class {$migrationName} to {$newClassName}",
+            );
+        }
+
+        file_put_contents($destinationFile, $replaced);
 
         return new InstallResult(true, $sourceFile, $destinationFile, 'installed', "Installed as {$newBasename}");
     }
@@ -239,9 +258,9 @@ class Installer
 
         if (is_dir($source)) {
             return $this->installDirectory($source, $destination, $assetOptions);
-        } else {
-            return $this->installFile($source, $destination, $assetOptions);
         }
+
+        return $this->installFile($source, $destination, $assetOptions);
     }
 
     /**
@@ -259,26 +278,31 @@ class Installer
         $plugin = $asset['plugin'] ?? 'Unknown';
         $tag = $asset['tag'] ?? 'bootstrap';
 
-        if ($this->manifest->isOperationCompleted($plugin, 'append', $tag, $asset)) {
-            if (!($options['force'] ?? false)) {
-                return new InstallResult(
-                    false,
-                    $asset['content'],
-                    $asset['destination'],
-                    'skipped',
-                    'Bootstrap append already completed (use --force to re-append)',
-                );
-            }
+        if (!$this->manifest->isOperationCompleted($plugin, 'append', $tag, $asset)) {
+            return $this->bootstrapAppender->append(
+                $asset['destination'],
+                $asset['content'],
+                $asset['marker'] ?? null,
+                $options['dry_run'] ?? false,
+            );
         }
 
-        $result = $this->bootstrapAppender->append(
+        if (!($options['force'] ?? false)) {
+            return new InstallResult(
+                false,
+                $asset['content'],
+                $asset['destination'],
+                'skipped',
+                'Bootstrap append already completed (use --force to re-append)',
+            );
+        }
+
+        return $this->bootstrapAppender->append(
             $asset['destination'],
             $asset['content'],
             $asset['marker'] ?? null,
             $options['dry_run'] ?? false,
         );
-
-        return $result;
     }
 
     /**
@@ -293,14 +317,12 @@ class Installer
      */
     protected function installAppendEnv(array $asset, array $options): InstallResult
     {
-        $result = $this->envInstaller->appendVars(
+        return $this->envInstaller->appendVars(
             $asset['destination'],
             $asset['env_vars'],
             $asset['comment'] ?? null,
             $options['dry_run'] ?? false,
         );
-
-        return $result;
     }
 
     /**
@@ -318,26 +340,31 @@ class Installer
         $plugin = $asset['plugin'] ?? 'Unknown';
         $tag = $asset['tag'] ?? 'config';
 
-        if ($this->manifest->isOperationCompleted($plugin, 'merge', $tag, $asset)) {
-            if (!($options['force'] ?? false)) {
-                return new InstallResult(
-                    false,
-                    $asset['key'],
-                    $asset['destination'],
-                    'skipped',
-                    'Config merge already completed (key exists)',
-                );
-            }
+        if (!$this->manifest->isOperationCompleted($plugin, 'merge', $tag, $asset)) {
+            return $this->configMerger->merge(
+                $asset['destination'],
+                $asset['key'],
+                $asset['value'],
+                $options['dry_run'] ?? false,
+            );
         }
 
-        $result = $this->configMerger->merge(
+        if (!($options['force'] ?? false)) {
+            return new InstallResult(
+                false,
+                $asset['key'],
+                $asset['destination'],
+                'skipped',
+                'Config merge already completed (key exists)',
+            );
+        }
+
+        return $this->configMerger->merge(
             $asset['destination'],
             $asset['key'],
             $asset['value'],
             $options['dry_run'] ?? false,
         );
-
-        return $result;
     }
 
     /**
@@ -352,7 +379,7 @@ class Installer
      */
     protected function installDependencies(array $asset, array $options): InstallResult
     {
-        if ($this->dependencyInstaller === null) {
+        if (!$this->dependencyInstaller instanceof DependencyInstaller) {
             return new InstallResult(
                 false,
                 'dependencies',
@@ -444,6 +471,7 @@ class Installer
                 if (!is_dir($targetDir)) {
                     mkdir($targetDir, 0755, true);
                 }
+
                 copy($item->getPathname(), $targetPath);
             }
         }

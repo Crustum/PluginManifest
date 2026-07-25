@@ -10,6 +10,7 @@ use Cake\Console\ConsoleOptionParser;
 use Cake\Core\Plugin;
 use Crustum\PluginManifest\Manifest\ManifestInterface;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
+use Override;
 
 class ManifestListCommand extends Command
 {
@@ -21,9 +22,16 @@ class ManifestListCommand extends Command
      */
     protected function buildOptionParser(ConsoleOptionParser $parser): ConsoleOptionParser
     {
-        $parser->setDescription('List all plugins with publishable assets and their installation status');
-
         return $parser;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    #[Override]
+    public static function getDescription(): string
+    {
+        return 'List all plugins with publishable assets and their installation status';
     }
 
     /**
@@ -38,7 +46,7 @@ class ManifestListCommand extends Command
         $manifest = new ManifestRegistry();
         $plugins = $this->discoverPublishablePlugins();
 
-        if (empty($plugins)) {
+        if ($plugins === []) {
             $io->warning('No plugins with publishable assets found.');
 
             return static::CODE_SUCCESS;
@@ -66,7 +74,7 @@ class ManifestListCommand extends Command
 
         foreach ($loadedPlugins as $pluginName) {
             $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = get_class($plugin);
+            $pluginClass = $plugin::class;
 
             if (!is_subclass_of($pluginClass, ManifestInterface::class)) {
                 continue;
@@ -177,7 +185,15 @@ class ManifestListCommand extends Command
         $count = 0;
 
         foreach ($files as $file) {
-            if ($file === '.' || $file === '..' || $file === 'schema-dump-default.lock') {
+            if ($file === '.') {
+                continue;
+            }
+
+            if ($file === '..') {
+                continue;
+            }
+
+            if ($file === 'schema-dump-default.lock') {
                 continue;
             }
 

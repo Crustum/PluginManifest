@@ -24,7 +24,7 @@ class DependencyResolver
     public function resolveDependencyOrder(array $allDependencies): array
     {
         $circularDeps = $this->checkCircularDependencies($allDependencies);
-        if (!empty($circularDeps)) {
+        if ($circularDeps !== []) {
             throw new InvalidArgumentException(
                 'Circular dependencies detected: ' . implode(' → ', $circularDeps),
             );
@@ -53,7 +53,7 @@ class DependencyResolver
                     $recursionStack,
                     [],
                 );
-                if (!empty($cycle)) {
+                if ($cycle !== []) {
                     return $cycle;
                 }
             }
@@ -82,7 +82,7 @@ class DependencyResolver
         foreach ($allDependencies as $plugin => $deps) {
             if (isset($deps['dependencies']) && is_array($deps['dependencies'])) {
                 foreach (array_keys($deps['dependencies']) as $dependency) {
-                    if (in_array($dependency, $allPlugins)) {
+                    if (in_array($dependency, $allPlugins, true)) {
                         $graph[$dependency][] = $plugin;
                         $inDegree[$plugin]++;
                     }
@@ -98,7 +98,7 @@ class DependencyResolver
         }
 
         $result = [];
-        while (!empty($queue)) {
+        while ($queue !== []) {
             $current = array_shift($queue);
             $result[] = $current;
 
@@ -145,7 +145,7 @@ class DependencyResolver
                         $recursionStack,
                         $path,
                     );
-                    if (!empty($cycle)) {
+                    if ($cycle !== []) {
                         return $cycle;
                     }
                 } elseif (isset($recursionStack[$dependencyString]) && $recursionStack[$dependencyString]) {
@@ -212,16 +212,13 @@ class DependencyResolver
     protected function evaluateCondition(mixed $condition, array $config): bool
     {
         if (is_string($condition)) {
-            switch ($condition) {
-                case 'file_exists':
-                    return isset($config['condition_path']) && file_exists($config['condition_path']);
-                case 'config_exists':
-                    return isset($config['condition_key']) &&
-                           class_exists('Cake\Core\Configure') &&
-                           Configure::check($config['condition_key']);
-                default:
-                    return false;
-            }
+            return match ($condition) {
+                'file_exists' => isset($config['condition_path']) && file_exists($config['condition_path']),
+                'config_exists' => isset($config['condition_key']) &&
+                       class_exists(Configure::class) &&
+                       Configure::check($config['condition_key']),
+                default => false,
+            };
         }
 
         if (is_callable($condition)) {
@@ -286,12 +283,12 @@ class DependencyResolver
             );
         }
 
-        if (empty($allDependencies)) {
+        if ($allDependencies === []) {
             return [];
         }
 
         $circularDeps = $this->checkCircularDependencies($allDependencies);
-        if (!empty($circularDeps)) {
+        if ($circularDeps !== []) {
             throw new InvalidArgumentException(
                 'Circular dependencies detected: ' . implode(' → ', $circularDeps),
             );

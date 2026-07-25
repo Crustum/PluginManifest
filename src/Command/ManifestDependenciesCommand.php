@@ -13,6 +13,7 @@ use Crustum\PluginManifest\Manifest\ManifestInterface;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
 use Exception;
 use InvalidArgumentException;
+use Override;
 
 /**
  * ManifestDependencies command
@@ -30,7 +31,6 @@ class ManifestDependenciesCommand extends Command
     protected function buildOptionParser(ConsoleOptionParser $parser): ConsoleOptionParser
     {
         return $parser
-            ->setDescription('Show plugin dependency tree and status')
             ->addOption('plugin', [
                 'short' => 'p',
                 'help' => 'The plugin to show dependencies for',
@@ -45,6 +45,15 @@ class ManifestDependenciesCommand extends Command
                 'help' => 'Show full dependency tree (recursive)',
                 'boolean' => true,
             ]);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    #[Override]
+    public static function getDescription(): string
+    {
+        return 'Show plugin dependency tree and status';
     }
 
     /**
@@ -68,13 +77,13 @@ class ManifestDependenciesCommand extends Command
 
         try {
             $plugin = Plugin::getCollection()->get($pluginName);
-        } catch (Exception $e) {
+        } catch (Exception) {
             $io->error("Plugin '{$pluginName}' not found.");
 
             return static::CODE_ERROR;
         }
 
-        $pluginClass = get_class($plugin);
+        $pluginClass = $plugin::class;
         if (!is_subclass_of($pluginClass, ManifestInterface::class)) {
             $io->error("Plugin '{$pluginName}' does not implement ManifestInterface.");
 
@@ -103,7 +112,7 @@ class ManifestDependenciesCommand extends Command
         $found = false;
         foreach (Plugin::loaded() as $pluginName) {
             $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = get_class($plugin);
+            $pluginClass = $plugin::class;
 
             if (is_subclass_of($pluginClass, ManifestInterface::class)) {
                 $assets = $pluginClass::manifest();
@@ -228,13 +237,13 @@ class ManifestDependenciesCommand extends Command
                 [$pluginName],
                 ['force_all' => true],
             );
-        } catch (InvalidArgumentException $e) {
-            $io->error($e->getMessage());
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            $io->error($invalidArgumentException->getMessage());
 
             return static::CODE_ERROR;
         }
 
-        if (empty($tree)) {
+        if ($tree === []) {
             $io->info('No dependencies found.');
 
             return static::CODE_SUCCESS;
@@ -273,7 +282,7 @@ class ManifestDependenciesCommand extends Command
         $registry = new ManifestRegistry();
         $dependencies = $registry->getDependencies($pluginName);
 
-        if (empty($dependencies)) {
+        if ($dependencies === []) {
             $io->out('  No dependencies installed');
 
             return;
@@ -296,7 +305,7 @@ class ManifestDependenciesCommand extends Command
 
         foreach (Plugin::loaded() as $pluginName) {
             $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = get_class($plugin);
+            $pluginClass = $plugin::class;
 
             if (is_subclass_of($pluginClass, ManifestInterface::class)) {
                 try {
