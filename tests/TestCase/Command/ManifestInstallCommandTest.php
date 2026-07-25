@@ -8,12 +8,12 @@ use Crustum\PluginManifest\Test\TestPlugin\TestPlugin;
 
 class ManifestInstallCommandTest extends TestCase
 {
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
     }
 
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         parent::tearDown();
     }
@@ -44,9 +44,7 @@ class ManifestInstallCommandTest extends TestCase
         $pluginClass = TestPlugin::class;
         $manifest = $pluginClass::manifest();
 
-        $configAssets = array_filter($manifest, function ($asset) {
-            return $asset['tag'] === 'config' && isset($asset['source']);
-        });
+        $configAssets = array_filter($manifest, fn(array $asset): bool => $asset['tag'] === 'config' && isset($asset['source']));
 
         $this->assertNotEmpty($configAssets);
 
@@ -64,9 +62,7 @@ class ManifestInstallCommandTest extends TestCase
         $pluginClass = TestPlugin::class;
         $manifest = $pluginClass::manifest();
 
-        $migrationAssets = array_filter($manifest, function ($asset) {
-            return $asset['tag'] === 'migrations';
-        });
+        $migrationAssets = array_filter($manifest, fn(array $asset): bool => $asset['tag'] === 'migrations');
 
         $this->assertNotEmpty($migrationAssets);
 
@@ -84,9 +80,7 @@ class ManifestInstallCommandTest extends TestCase
         $pluginClass = TestPlugin::class;
         $manifest = $pluginClass::manifest();
 
-        $bootstrapAssets = array_filter($manifest, function ($asset) {
-            return $asset['type'] === 'append' && $asset['tag'] === 'bootstrap';
-        });
+        $bootstrapAssets = array_filter($manifest, fn(array $asset): bool => $asset['type'] === 'append' && $asset['tag'] === 'bootstrap');
 
         $this->assertNotEmpty($bootstrapAssets);
 
@@ -103,9 +97,7 @@ class ManifestInstallCommandTest extends TestCase
         $pluginClass = TestPlugin::class;
         $manifest = $pluginClass::manifest();
 
-        $envAssets = array_filter($manifest, function ($asset) {
-            return $asset['type'] === 'append-env';
-        });
+        $envAssets = array_filter($manifest, fn(array $asset): bool => $asset['type'] === 'append-env');
 
         $this->assertNotEmpty($envAssets);
 
@@ -122,9 +114,7 @@ class ManifestInstallCommandTest extends TestCase
         $pluginClass = TestPlugin::class;
         $manifest = $pluginClass::manifest();
 
-        $mergeAssets = array_filter($manifest, function ($asset) {
-            return $asset['type'] === 'merge';
-        });
+        $mergeAssets = array_filter($manifest, fn(array $asset): bool => $asset['type'] === 'merge');
 
         $this->assertNotEmpty($mergeAssets);
 

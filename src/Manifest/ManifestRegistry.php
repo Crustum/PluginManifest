@@ -175,7 +175,15 @@ class ManifestRegistry
         $migrationFiles = [];
 
         foreach ($files as $file) {
-            if ($file === '.' || $file === '..' || $file === 'schema-dump-default.lock') {
+            if ($file === '.') {
+                continue;
+            }
+
+            if ($file === '..') {
+                continue;
+            }
+
+            if ($file === 'schema-dump-default.lock') {
                 continue;
             }
 
@@ -184,7 +192,7 @@ class ManifestRegistry
             }
         }
 
-        if (empty($migrationFiles)) {
+        if ($migrationFiles === []) {
             return true;
         }
 
@@ -279,7 +287,7 @@ class ManifestRegistry
      */
     protected function save(array $manifest): void
     {
-        $directory = dirname(static::MANIFEST_FILE);
+        $directory = dirname((string)static::MANIFEST_FILE);
         if (!is_dir($directory)) {
             mkdir($directory, 0755, true);
         }
@@ -298,7 +306,7 @@ class ManifestRegistry
      */
     protected function exportArray(array $array, int $indent): string
     {
-        if (empty($array)) {
+        if ($array === []) {
             return '[]';
         }
 
@@ -382,7 +390,7 @@ class ManifestRegistry
         $path = str_replace('\\', '/', $path);
         $root = str_replace('\\', '/', ROOT);
 
-        if (strpos($path, $root) === 0) {
+        if (str_starts_with($path, $root)) {
             $path = substr($path, strlen($root));
             $path = ltrim($path, '/');
         }
@@ -413,7 +421,7 @@ class ManifestRegistry
      */
     protected function isAbsolutePath(string $path): bool
     {
-        if (strlen($path) === 0) {
+        if ($path === '') {
             return false;
         }
 
@@ -421,11 +429,7 @@ class ManifestRegistry
             return true;
         }
 
-        if (strlen($path) > 1 && $path[1] === ':') {
-            return true;
-        }
-
-        return false;
+        return strlen($path) > 1 && $path[1] === ':';
     }
 
     /**
@@ -546,7 +550,11 @@ class ManifestRegistry
         $statuses = [];
 
         foreach ($manifest as $pluginName => $operations) {
-            if ($pluginName === '_dependencies' || $pluginName === '_star_prompts') {
+            if ($pluginName === '_dependencies') {
+                continue;
+            }
+
+            if ($pluginName === '_star_prompts') {
                 continue;
             }
 

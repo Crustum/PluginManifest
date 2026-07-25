@@ -25,7 +25,7 @@ class PluginDiscovery
 
         foreach (Plugin::loaded() as $pluginName) {
             $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = get_class($plugin);
+            $pluginClass = $plugin::class;
 
             if (is_subclass_of($pluginClass, ManifestInterface::class)) {
                 try {

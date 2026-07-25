@@ -7,6 +7,7 @@ use Cake\Console\ConsoleIo;
 use Cake\Core\Plugin;
 use Crustum\PluginManifest\Manifest\GitHubRepoResolver;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
+use Crustum\Prompts\Console\Helper\ConfirmHelper;
 
 /**
  * Helper for handling GitHub star repository prompts
@@ -55,7 +56,7 @@ class StarRepo
         }
 
         $githubRepo = $starRepoAsset['repo'] ?? null;
-        $defaultAnswer = $starRepoAsset['default_answer'] ?? true;
+        $defaultAnswer = (bool)($starRepoAsset['default_answer'] ?? true);
 
         if (!$githubRepo) {
             $plugin = Plugin::getCollection()->get($pluginName);
@@ -68,13 +69,15 @@ class StarRepo
         }
 
         $io->out('');
-        $confirmed = $io->askChoice(
-            "Would you like to star {$githubRepo} on GitHub?",
-            ['y', 'n'],
-            $defaultAnswer ? 'y' : 'n',
-        );
+        $confirm = $io->helper('Crustum/Prompts.Confirm');
+        assert($confirm instanceof ConfirmHelper);
 
-        if ($confirmed === 'y') {
+        $confirmed = $confirm->run([
+            'label' => "Would you like to star {$githubRepo} on GitHub?",
+            'default' => $defaultAnswer,
+        ]);
+
+        if ($confirmed) {
             $repoUrl = "https://github.com/{$githubRepo}";
 
             $os = PHP_OS_FAMILY;

@@ -10,9 +10,10 @@ use Crustum\PluginManifest\Manifest\RawValue;
 class ConfigMergerTest extends TestCase
 {
     protected string $testDir;
+
     protected ConfigMerger $merger;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 
@@ -22,7 +23,7 @@ class ConfigMergerTest extends TestCase
         $this->merger = new ConfigMerger();
     }
 
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         parent::tearDown();
 
@@ -49,6 +50,7 @@ class ConfigMergerTest extends TestCase
                 unlink($path);
             }
         }
+
         rmdir($dir);
     }
 

@@ -5,6 +5,7 @@ namespace Crustum\PluginManifest\Manifest;
 
 use Cake\Console\ConsoleIo;
 use Cake\Core\Plugin;
+use Crustum\Prompts\Console\Helper\ConfirmHelper;
 use Exception;
 use InvalidArgumentException;
 
@@ -64,7 +65,7 @@ class DependencyInstaller
 
         $directDeps = $this->promptForDependencies($dependencyInfo, $availablePlugins, $options, $io);
 
-        if (empty($directDeps)) {
+        if ($directDeps === []) {
             return new InstallResult(
                 true,
                 'dependencies',
@@ -85,8 +86,8 @@ class DependencyInstaller
                 array_keys($directDeps),
                 $filterOptions,
             );
-        } catch (InvalidArgumentException $e) {
-            $io->error($e->getMessage());
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            $io->error($invalidArgumentException->getMessage());
 
             return new InstallResult(
                 false,
@@ -97,7 +98,7 @@ class DependencyInstaller
             );
         }
 
-        if (empty($completeDependencyTree)) {
+        if ($completeDependencyTree === []) {
             $io->out('<info>No transitive dependencies found.</info>');
 
             return $this->installSelectedDependencies($directDeps, $dependencies, $options, $io, $parentPlugin);
@@ -123,7 +124,7 @@ class DependencyInstaller
 
         foreach (Plugin::loaded() as $pluginName) {
             $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = get_class($plugin);
+            $pluginClass = $plugin::class;
 
             if (is_subclass_of($pluginClass, ManifestInterface::class)) {
                 try {
@@ -218,13 +219,15 @@ class DependencyInstaller
             if ($required || $allDeps) {
                 $toInstall[$pluginName] = $info;
             } elseif (!$dryRun) {
-                $install = $io->askChoice(
-                    $info['prompt'],
-                    ['y', 'n'],
-                    'n',
-                );
+                $confirm = $io->helper('Crustum/Prompts.Confirm');
+                assert($confirm instanceof ConfirmHelper);
 
-                if ($install === 'y') {
+                $install = $confirm->run([
+                    'label' => (string)$info['prompt'],
+                    'default' => false,
+                ]);
+
+                if ($install) {
                     $toInstall[$pluginName] = $info;
                 }
             }
@@ -250,7 +253,7 @@ class DependencyInstaller
         ConsoleIo $io,
         string $parentPlugin = '',
     ): InstallResult {
-        if (empty($toInstall)) {
+        if ($toInstall === []) {
             return new InstallResult(
                 true,
                 'dependencies',
@@ -272,13 +275,15 @@ class DependencyInstaller
         }
 
         if (!($options['dry_run'] ?? false)) {
-            $proceed = $io->askChoice(
-                'Proceed with dependency installation?',
-                ['y', 'n'],
-                'y',
-            );
+            $confirm = $io->helper('Crustum/Prompts.Confirm');
+            assert($confirm instanceof ConfirmHelper);
 
-            if ($proceed !== 'y') {
+            $proceed = $confirm->run([
+                'label' => 'Proceed with dependency installation?',
+                'default' => true,
+            ]);
+
+            if (!$proceed) {
                 return new InstallResult(
                     false,
                     'dependencies',
@@ -338,6 +343,7 @@ class DependencyInstaller
         if ($skippedCount > 0) {
             $message .= ", {$skippedCount} skipped (duplicates)";
         }
+
         if ($errorCount > 0) {
             $message .= ", {$errorCount} failed";
         }
@@ -371,7 +377,7 @@ class DependencyInstaller
     ): InstallResult {
         try {
             $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = get_class($plugin);
+            $pluginClass = $plugin::class;
 
             if (!is_subclass_of($pluginClass, ManifestInterface::class)) {
                 return new InstallResult(
@@ -431,13 +437,13 @@ class DependencyInstaller
                 $errorCount === 0 ? 'installed' : 'partial',
                 $message,
             );
-        } catch (Exception $e) {
+        } catch (Exception $exception) {
             return new InstallResult(
                 false,
                 $pluginName,
                 $pluginName,
                 'error',
-                "Failed to install {$pluginName}: " . $e->getMessage(),
+                "Failed to install {$pluginName}: " . $exception->getMessage(),
             );
         }
     }
@@ -457,7 +463,7 @@ class DependencyInstaller
         foreach (Plugin::loaded() as $loadedName) {
             try {
                 $plugin = Plugin::getCollection()->get($loadedName);
-                if (get_class($plugin) === $pluginClass) {
+                if ($plugin::class === $pluginClass) {
                     return $loadedName;
                 }
             } catch (Exception) {
@@ -556,9 +562,11 @@ class DependencyInstaller
             if (isset($asset['source'])) {
                 $assetData['source'] = $asset['source'];
             }
+
             if (isset($asset['marker'])) {
                 $assetData['marker'] = $asset['marker'];
             }
+
             if (isset($asset['key'])) {
                 $assetData['key'] = $asset['key'];
             }

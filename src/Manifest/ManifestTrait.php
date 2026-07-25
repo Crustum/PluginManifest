@@ -22,9 +22,8 @@ trait ManifestTrait
     {
         $pluginName = static::class;
         $pluginName = substr($pluginName, strrpos($pluginName, '\\') + 1);
-        $pluginName = str_replace('Plugin', '', $pluginName);
 
-        return $pluginName;
+        return str_replace('Plugin', '', $pluginName);
     }
 
     /**
@@ -42,7 +41,7 @@ trait ManifestTrait
         string $source,
         ?string $destination = null,
     ): array {
-        $destination = $destination ?? CONFIG . 'Migrations';
+        $destination ??= CONFIG . 'Migrations';
 
         return [[
             'type' => OperationType::COPY,
@@ -96,7 +95,7 @@ trait ManifestTrait
     ): array {
         $pluginName = static::getPluginName();
 
-        $comment = $comment ?? '# ' . $pluginName . ' Configuration';
+        $comment ??= '# ' . $pluginName . ' Configuration';
 
         return [[
             'type' => OperationType::APPEND_ENV,
@@ -146,7 +145,7 @@ trait ManifestTrait
         ?string $destination = null,
     ): array {
         $pluginName = static::getPluginName();
-        $destination = $destination ?? WWW_ROOT . strtolower($pluginName);
+        $destination ??= WWW_ROOT . strtolower($pluginName);
 
         return [[
             'type' => OperationType::COPY,
@@ -176,7 +175,7 @@ trait ManifestTrait
     ): array {
         $pluginName = static::getPluginName();
 
-        $marker = $marker ?? '// ' . $pluginName . ' Configuration';
+        $marker ??= '// ' . $pluginName . ' Configuration';
 
         return [[
             'type' => OperationType::APPEND,

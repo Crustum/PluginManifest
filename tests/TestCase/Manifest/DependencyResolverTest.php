@@ -14,13 +14,13 @@ class DependencyResolverTest extends TestCase
 {
     protected DependencyResolver $resolver;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
         $this->resolver = new DependencyResolver();
     }
 
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         unset($this->resolver);
         parent::tearDown();
@@ -264,17 +264,11 @@ class DependencyResolverTest extends TestCase
         $dependencies = [
             'PluginA' => [
                 'required' => false,
-                'condition' => function () {
-
-                    return true;
-                },
+                'condition' => fn(): bool => true,
             ],
             'PluginB' => [
                 'required' => false,
-                'condition' => function () {
-
-                    return false;
-                },
+                'condition' => fn(): bool => false,
             ],
         ];
 

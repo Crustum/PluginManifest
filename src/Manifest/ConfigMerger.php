@@ -59,7 +59,7 @@ class ConfigMerger
         $targetKey = end($path);
         $parentPath = array_slice($path, 0, -1);
 
-        if (empty($parentPath)) {
+        if ($parentPath === []) {
             if (isset($config[$targetKey])) {
                 return new InstallResult(false, $key, $filePath, 'skipped', "Key '{$key}' already exists in config");
             }
@@ -75,6 +75,7 @@ class ConfigMerger
                 if (!isset($parentConfig[$p]) || !is_array($parentConfig[$p])) {
                     return new InstallResult(false, $key, $filePath, 'error', "Parent path '" . implode('.', $parentPath) . "' does not exist or is not an array");
                 }
+
                 $parentConfig = $parentConfig[$p];
             }
 
@@ -210,9 +211,8 @@ class ConfigMerger
         $valueExport = var_export($value, true);
         $valueExport = (string)preg_replace('/array \(/', '[', $valueExport);
         $valueExport = (string)preg_replace('/\)$/', ']', $valueExport);
-        $valueExport = (string)preg_replace('/\),/', '],', $valueExport);
 
-        return $valueExport;
+        return (string)preg_replace('/\),/', '],', $valueExport);
     }
 
     /**
@@ -225,7 +225,7 @@ class ConfigMerger
      */
     protected function exportArray(array $array): string
     {
-        if (empty($array)) {
+        if ($array === []) {
             return '[]';
         }
 
@@ -241,12 +241,14 @@ class ConfigMerger
                 for ($i = 1; $i < $nestedLinesCount; $i++) {
                     $lines[] = '    ' . $nestedLines[$i];
                 }
+
                 $lines[count($lines) - 1] .= ',';
             } else {
                 $valueExport = var_export($value, true);
                 $lines[] = "    '{$key}' => {$valueExport},";
             }
         }
+
         $lines[] = ']';
 
         return implode("\n", $lines);
@@ -263,7 +265,7 @@ class ConfigMerger
         array $lines,
         array $parentPath,
     ): ?array {
-        if (empty($parentPath)) {
+        if ($parentPath === []) {
             return null;
         }
 
@@ -289,11 +291,13 @@ class ConfigMerger
                 if (str_contains($trimmed, '[') && !str_contains($trimmed, ']')) {
                     $arrayDepth++;
                 }
+
                 if (str_contains($trimmed, ']') && !str_contains($trimmed, '[')) {
                     if ($arrayDepth === 0) {
                         $targetLine = $i;
                         break;
                     }
+
                     $arrayDepth--;
                 }
             }

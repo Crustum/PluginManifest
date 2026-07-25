@@ -58,7 +58,7 @@ class GitHubRepoResolver
 
         try {
             $response = $client->get($packagistUrl);
-        } catch (Exception $e) {
+        } catch (Exception) {
             return null;
         }
 
@@ -93,7 +93,7 @@ class GitHubRepoResolver
      */
     protected static function extractGitHubRepo(string $url): ?string
     {
-        if (strpos($url, 'github.com') === false) {
+        if (!str_contains($url, 'github.com')) {
             return null;
         }
 
