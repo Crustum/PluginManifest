@@ -36,7 +36,7 @@ class EnvInstaller
     ): InstallResult {
         $fileExists = file_exists($filePath);
 
-        if (empty($envVars)) {
+        if ($envVars === []) {
             return new InstallResult(true, 'env_vars', $filePath, 'skipped', 'Added 0 variable(s)');
         }
 
@@ -63,7 +63,7 @@ class EnvInstaller
             }
         }
 
-        if (empty($newVars)) {
+        if ($newVars === []) {
             return new InstallResult(false, 'env_vars', $filePath, 'skipped', 'All environment variables already exist');
         }
 
@@ -103,12 +103,15 @@ class EnvInstaller
 
         foreach ($lines as $line) {
             $line = trim($line);
-
-            if (empty($line) || strpos($line, '#') === 0) {
+            if (empty($line)) {
                 continue;
             }
 
-            if (strpos($line, '=') === false) {
+            if (str_starts_with($line, '#')) {
+                continue;
+            }
+
+            if (!str_contains($line, '=')) {
                 continue;
             }
 

@@ -14,9 +14,10 @@ use Crustum\PluginManifest\Manifest\ManifestRegistry;
 class DependencyTrackingTest extends TestCase
 {
     protected ManifestRegistry $registry;
+
     protected string $testRegistryFile;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 
@@ -52,7 +53,7 @@ class DependencyTrackingTest extends TestCase
         };
     }
 
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         if (file_exists($this->testRegistryFile)) {
             unlink($this->testRegistryFile);

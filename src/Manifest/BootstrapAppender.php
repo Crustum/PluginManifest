@@ -47,11 +47,11 @@ class BootstrapAppender
             return new InstallResult(false, $content, $filePath, 'error', "Could not read file: {$filePath}");
         }
 
-        if ($marker && strpos($existingContent, $marker) !== false) {
+        if ($marker && str_contains($existingContent, $marker)) {
             return new InstallResult(false, $content, $filePath, 'skipped', 'Marker already exists in file');
         }
 
-        if (strpos($existingContent, trim($content)) !== false) {
+        if (str_contains($existingContent, trim($content))) {
             return new InstallResult(false, $content, $filePath, 'skipped', 'Content already exists in file');
         }
 
@@ -59,6 +59,7 @@ class BootstrapAppender
         if ($marker) {
             $newContent .= $marker . "\n";
         }
+
         $newContent .= $content . "\n";
 
         if (!$dryRun) {

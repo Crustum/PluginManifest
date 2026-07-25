@@ -13,9 +13,10 @@ use Crustum\PluginManifest\Manifest\ManifestRegistry;
 class InstallerIntegrationTest extends TestCase
 {
     protected string $testDir;
+
     protected Installer $installer;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 
@@ -29,7 +30,7 @@ class InstallerIntegrationTest extends TestCase
         $this->installer = new Installer($bootstrapAppender, $configMerger, $envInstaller, $manifest);
     }
 
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         parent::tearDown();
 
@@ -51,6 +52,7 @@ class InstallerIntegrationTest extends TestCase
                 unlink($path);
             }
         }
+
         rmdir($dir);
     }
 
@@ -320,6 +322,40 @@ class InstallerIntegrationTest extends TestCase
 
         $content = file_get_contents($installedFile);
         $this->assertStringContainsString('class TestPluginCreateTestTable extends AbstractMigration', $content);
+    }
+
+    public function testMigrationInstallationKeepsPluralClassName(): void
+    {
+        $sourceDir = $this->testDir . 'source_migrations_plural' . DS;
+        $destDir = $this->testDir . 'dest_migrations_plural' . DS;
+
+        mkdir($sourceDir, 0777, true);
+        mkdir($destDir, 0777, true);
+
+        $migrationContent = "<?php\n\nclass CreateSpeculumEntries extends AbstractMigration\n{\n}\n";
+        file_put_contents($sourceDir . '20260721090000_CreateSpeculumEntries.php', $migrationContent);
+
+        $asset = [
+            'type' => 'copy',
+            'source' => $sourceDir,
+            'destination' => $destDir,
+            'tag' => 'migrations',
+            'options' => [
+                'rename_with_plugin' => true,
+                'plugin_namespace' => 'Speculum',
+            ],
+        ];
+
+        $result = $this->installer->install($asset);
+
+        $this->assertTrue($result->success);
+
+        $installedFile = $destDir . '20260721090000_SpeculumCreateSpeculumEntries.php';
+        $this->assertFileExists($installedFile);
+
+        $content = file_get_contents($installedFile);
+        $this->assertStringContainsString('class SpeculumCreateSpeculumEntries extends AbstractMigration', $content);
+        $this->assertStringNotContainsString('class CreateSpeculumEntries extends', $content);
     }
 
     public function testDryRunMode(): void

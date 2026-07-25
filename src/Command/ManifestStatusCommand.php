@@ -11,6 +11,7 @@ use Cake\Core\Plugin;
 use Crustum\PluginManifest\Manifest\ManifestInterface;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
 use Exception;
+use Override;
 
 /**
  * ManifestStatus command
@@ -28,7 +29,6 @@ class ManifestStatusCommand extends Command
     protected function buildOptionParser(ConsoleOptionParser $parser): ConsoleOptionParser
     {
         return $parser
-            ->setDescription('Show plugin asset installation status')
             ->addOption('plugin', [
                 'short' => 'p',
                 'help' => 'The plugin to show status for',
@@ -43,6 +43,15 @@ class ManifestStatusCommand extends Command
                 'help' => 'Show status for all plugins',
                 'boolean' => true,
             ]);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    #[Override]
+    public static function getDescription(): string
+    {
+        return 'Show plugin asset installation status';
     }
 
     /**
@@ -74,7 +83,7 @@ class ManifestStatusCommand extends Command
 
         try {
             Plugin::getCollection()->get($pluginName);
-        } catch (Exception $e) {
+        } catch (Exception) {
             $io->error("Plugin '{$pluginName}' not found.");
 
             return static::CODE_ERROR;
@@ -101,7 +110,7 @@ class ManifestStatusCommand extends Command
 
         $allStatuses = $registry->getAllPluginStatuses();
 
-        if (empty($allStatuses)) {
+        if ($allStatuses === []) {
             $io->info('No plugins have installed assets.');
 
             return static::CODE_SUCCESS;
@@ -211,7 +220,7 @@ class ManifestStatusCommand extends Command
 
         foreach (Plugin::loaded() as $pluginName) {
             $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = get_class($plugin);
+            $pluginClass = $plugin::class;
 
             if (is_subclass_of($pluginClass, ManifestInterface::class)) {
                 try {

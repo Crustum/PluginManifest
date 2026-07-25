@@ -11,10 +11,16 @@ namespace Crustum\PluginManifest\Manifest;
 class OperationType
 {
     public const COPY = 'copy';
+
     public const COPY_SAFE = 'copy-safe';
+
     public const APPEND = 'append';
+
     public const APPEND_ENV = 'append-env';
+
     public const MERGE = 'merge';
+
     public const DEPENDENCIES = 'dependencies';
+
     public const STAR_REPO = 'star-repo';
 }

@@ -5,6 +5,9 @@ namespace Crustum\PluginManifest\Command\Helper;
 
 use Cake\Console\ConsoleIo;
 use Crustum\PluginManifest\Manifest\InstallResult;
+use Crustum\Prompts\Console\Helper\IntroHelper;
+use Crustum\Prompts\Console\Helper\OutroHelper;
+use Crustum\Prompts\Console\Helper\WarningHelper;
 
 /**
  * Helper for formatting and displaying installation output
@@ -12,7 +15,88 @@ use Crustum\PluginManifest\Manifest\InstallResult;
 class OutputFormatter
 {
     /**
-     * Display installation result
+     * Display dry-run banner.
+     *
+     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @return void
+     */
+    public function displayDryRunNote(ConsoleIo $io): void
+    {
+        $warning = $io->helper('Crustum/Prompts.Warning');
+        assert($warning instanceof WarningHelper);
+        $warning->run([
+            'message' => 'Dry run — no files will be changed',
+        ]);
+        $io->out('');
+    }
+
+    /**
+     * Display install intro for a plugin.
+     *
+     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param string $pluginName Plugin name
+     * @param list<string>|null $tags Tags being installed (null = all)
+     * @return void
+     */
+    public function displayPluginIntro(ConsoleIo $io, string $pluginName, ?array $tags = null): void
+    {
+        $message = "Manifest install · {$pluginName}";
+        if ($tags !== null && $tags !== []) {
+            $message .= ' · tags: ' . implode(', ', $tags);
+        }
+
+        $intro = $io->helper('Crustum/Prompts.Intro');
+        assert($intro instanceof IntroHelper);
+        $intro->run(['message' => $message]);
+        $io->out('');
+    }
+
+    /**
+     * Display per-plugin installation outro summary.
+     *
+     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param string $pluginName Plugin name
+     * @param int $installed Installed count
+     * @param int $skipped Skipped count
+     * @param int $errors Error count
+     * @return void
+     */
+    public function displayPluginOutro(
+        ConsoleIo $io,
+        string $pluginName,
+        int $installed,
+        int $skipped,
+        int $errors,
+    ): void {
+        $io->out('');
+        $outro = $io->helper('Crustum/Prompts.Outro');
+        assert($outro instanceof OutroHelper);
+        $outro->run([
+            'message' => "Done · {$pluginName} · {$installed} installed · {$skipped} skipped · {$errors} errors",
+        ]);
+    }
+
+    /**
+     * Display multi-plugin batch summary.
+     *
+     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param int $processed Plugins processed
+     * @param int $successful Successful plugins
+     * @param int $errors Plugins with errors
+     * @return void
+     */
+    public function displayBatchSummary(ConsoleIo $io, int $processed, int $successful, int $errors): void
+    {
+        $io->out('');
+        $outro = $io->helper('Crustum/Prompts.Outro');
+        assert($outro instanceof OutroHelper);
+        $outro->run([
+            'message' => "Summary · {$processed} plugins · {$successful} successful · {$errors} errors",
+        ]);
+    }
+
+    /**
+     * Display installation result as a truncated path line.
      *
      * @param \Cake\Console\ConsoleIo $io Console IO
      * @param \Crustum\PluginManifest\Manifest\InstallResult $result Install result
@@ -61,6 +145,10 @@ class OutputFormatter
      */
     public function truncatePath(string $path, int $maxLength): string
     {
+        if ($path === '') {
+            return '';
+        }
+
         if (strlen($path) <= $maxLength) {
             return $path;
         }

@@ -5,16 +5,40 @@ namespace Crustum\PluginManifest;
 
 use Cake\Console\CommandCollection;
 use Cake\Core\BasePlugin;
+use Cake\Core\Plugin;
+use Cake\Core\PluginApplicationInterface;
 use Crustum\PluginManifest\Command\ManifestDependenciesCommand;
 use Crustum\PluginManifest\Command\ManifestInstallCommand;
 use Crustum\PluginManifest\Command\ManifestListCommand;
 use Crustum\PluginManifest\Command\ManifestStatusCommand;
+use Crustum\Prompts\PromptsPlugin;
+use Override;
 
 /**
  * Plugin for PluginManifest
  */
 class PluginManifestPlugin extends BasePlugin
 {
+    /**
+     * Load Crustum/Prompts so install selection helpers are available.
+     *
+     * @param \Cake\Core\PluginApplicationInterface $app Host application
+     * @return void
+     */
+    #[Override]
+    public function bootstrap(PluginApplicationInterface $app): void
+    {
+        parent::bootstrap($app);
+
+        if (
+            class_exists(PromptsPlugin::class)
+            && !Plugin::isLoaded('Crustum/Prompts')
+            && !Plugin::isLoaded('Prompts')
+        ) {
+            $app->addPlugin(PromptsPlugin::class);
+        }
+    }
+
     /**
      * Add commands for the plugin.
      *

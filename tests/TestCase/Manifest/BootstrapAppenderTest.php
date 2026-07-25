@@ -9,9 +9,10 @@ use Crustum\PluginManifest\Manifest\BootstrapAppender;
 class BootstrapAppenderTest extends TestCase
 {
     protected string $testDir;
+
     protected BootstrapAppender $appender;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 
@@ -21,7 +22,7 @@ class BootstrapAppenderTest extends TestCase
         $this->appender = new BootstrapAppender();
     }
 
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         parent::tearDown();
 
@@ -48,6 +49,7 @@ class BootstrapAppenderTest extends TestCase
                 unlink($path);
             }
         }
+
         rmdir($dir);
     }
 

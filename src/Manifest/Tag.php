@@ -11,10 +11,16 @@ namespace Crustum\PluginManifest\Manifest;
 class Tag
 {
     public const CONFIG = 'config';
+
     public const MIGRATIONS = 'migrations';
+
     public const WEBROOT = 'webroot';
+
     public const BOOTSTRAP = 'bootstrap';
+
     public const ENVS = 'envs';
+
     public const DEPENDENCIES = 'dependencies';
+
     public const STAR_REPO = 'star-repo';
 }

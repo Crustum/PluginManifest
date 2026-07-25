@@ -21,6 +21,7 @@ $findRoot = function () {
 if (!defined('DS')) {
     define('DS', DIRECTORY_SEPARATOR);
 }
+
 define('ROOT', $findRoot());
 define('APP_DIR', 'TestApp');
 define('WEBROOT_DIR', 'webroot');
@@ -44,6 +45,7 @@ use Cake\Core\Plugin;
 use Cake\Datasource\ConnectionManager;
 use Cake\Error\ErrorTrap;
 use Crustum\PluginManifest\PluginManifestPlugin;
+use Crustum\Prompts\PromptsPlugin;
 
 Configure::write('App', ['namespace' => 'TestApp']);
 Configure::write('debug', true);
@@ -106,8 +108,12 @@ Configure::write('Authentication', [
     'queryParam' => 'redirect',
 ]);
 
+if (class_exists(PromptsPlugin::class)) {
+    Plugin::getCollection()->add(new PromptsPlugin());
+}
+
 Plugin::getCollection()->add(new PluginManifestPlugin([
-    'path' => dirname(dirname(__FILE__)) . DS,
+    'path' => dirname(__FILE__, 2) . DS,
 ]));
 
 $error = [
