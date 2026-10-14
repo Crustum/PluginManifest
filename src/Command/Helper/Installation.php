@@ -69,7 +69,7 @@ class Installation
         foreach ($selections as $selection) {
             $pluginName = $selection['plugin'];
             if (!isset($plugins[$pluginName])) {
-                $io->error("Plugin '{$pluginName}' not found or does not implement ManifestInterface.");
+                $io->error("Plugin '{$pluginName}' not found or does not provide a manifest.");
                 $totalErrors++;
                 continue;
             }

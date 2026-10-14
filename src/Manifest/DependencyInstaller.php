@@ -114,7 +114,7 @@ class DependencyInstaller
     }
 
     /**
-     * Discover available plugins that implement ManifestInterface
+     * Discover available plugins that provide a manifest.
      *
      * @return array<string, array<string, mixed>> Available plugins with their manifest data
      */
@@ -126,18 +126,12 @@ class DependencyInstaller
             $plugin = Plugin::getCollection()->get($pluginName);
             $pluginClass = $plugin::class;
 
-            if (is_subclass_of($pluginClass, ManifestInterface::class)) {
-                try {
-                    $assets = $pluginClass::manifest();
-                    if (!empty($assets)) {
-                        $plugins[$pluginName] = [
-                            'class' => $pluginClass,
-                            'assets' => $this->organizeAssetsByTag($assets, $pluginName),
-                        ];
-                    }
-                } catch (Exception) {
-                    // Skip plugins with manifest errors
-                }
+            $assets = ManifestResolver::manifestFor($pluginClass);
+            if (!empty($assets)) {
+                $plugins[$pluginName] = [
+                    'class' => $pluginClass,
+                    'assets' => $this->organizeAssetsByTag($assets, $pluginName),
+                ];
             }
         }
 
@@ -208,7 +202,7 @@ class DependencyInstaller
             $io->out("  {$statusIcon} <warning>{$pluginName}</warning> ({$typeLabel}){$availableLabel}{$conditionLabel} - {$info['reason']}");
 
             if (!$available) {
-                $io->out("    <error>Plugin {$pluginName} is not loaded or does not implement ManifestInterface</error>");
+                $io->out("    <error>Plugin {$pluginName} is not loaded or does not provide a manifest</error>");
                 continue;
             }
 
@@ -379,18 +373,18 @@ class DependencyInstaller
             $plugin = Plugin::getCollection()->get($pluginName);
             $pluginClass = $plugin::class;
 
-            if (!is_subclass_of($pluginClass, ManifestInterface::class)) {
+            $assets = ManifestResolver::manifestFor($pluginClass);
+            if ($assets === null) {
                 return new InstallResult(
                     false,
                     $pluginName,
                     $pluginName,
                     'error',
-                    "{$pluginName} does not implement ManifestInterface",
+                    "{$pluginName} does not provide a manifest",
                 );
             }
 
             $actualPluginName = $this->getActualPluginName($pluginClass, $pluginName);
-            $assets = $pluginClass::manifest();
             $organizedAssets = $this->organizeAssetsByTag($assets, $actualPluginName);
 
             $tagsToInstall = $dependencyConfig['tags'] ?? null;
