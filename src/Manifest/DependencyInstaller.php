@@ -151,9 +151,7 @@ class DependencyInstaller
 
         foreach ($assets as $asset) {
             $tag = $asset['tag'] ?? 'default';
-            if (!isset($organized[$tag])) {
-                $organized[$tag] = [];
-            }
+            $organized[$tag] ??= [];
 
             $asset['plugin'] = $pluginName;
             $organized[$tag][] = $asset;
@@ -549,7 +547,7 @@ class DependencyInstaller
             }
         } else {
             $assetData = [
-                'destination' => $result->destination ?? $asset['destination'] ?? null,
+                'destination' => $result->destination !== '' ? $result->destination : ($asset['destination'] ?? null),
                 'completed' => true,
             ];
 

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Crustum\PluginManifest\Command\Helper;
 
-use Cake\Console\ConsoleIo;
+use Cake\Console\ConsoleIoInterface;
 use Crustum\PluginManifest\Manifest\Tag;
 use Crustum\Prompts\Console\Helper\MultiSelectHelper;
 
@@ -26,11 +26,11 @@ class InstallSelection
     /**
      * Prompt for plugins (and tags when a single plugin is chosen).
      *
-     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param \Cake\Console\ConsoleIoInterface $io Console IO
      * @param array<string, array<string, mixed>> $plugins Discoverable plugins
      * @return list<array{plugin: string, tags: list<string>|null}>|null Selections or null if cancelled
      */
-    public function prompt(ConsoleIo $io, array $plugins): ?array
+    public function prompt(ConsoleIoInterface $io, array $plugins): ?array
     {
         $pluginNames = array_keys($plugins);
         $selectedPluginKeys = $this->promptForPlugins($io, $plugins);
@@ -139,11 +139,11 @@ class InstallSelection
     }
 
     /**
-     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param \Cake\Console\ConsoleIoInterface $io Console IO
      * @param array<string, array<string, mixed>> $plugins Plugins
      * @return array<int|string> Selected keys
      */
-    protected function promptForPlugins(ConsoleIo $io, array $plugins): array
+    protected function promptForPlugins(ConsoleIoInterface $io, array $plugins): array
     {
         $options = [
             self::ALL_PLUGINS => 'All plugins',
@@ -179,12 +179,12 @@ class InstallSelection
     }
 
     /**
-     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param \Cake\Console\ConsoleIoInterface $io Console IO
      * @param string $pluginName Plugin name
      * @param array<string, mixed> $pluginData Plugin data
      * @return list<string>|false|null Tag filter, null for all, false if cancelled
      */
-    protected function promptForTags(ConsoleIo $io, string $pluginName, array $pluginData): array|null|false
+    protected function promptForTags(ConsoleIoInterface $io, string $pluginName, array $pluginData): array|null|false
     {
         /** @var list<string> $tagNames */
         $tagNames = [];

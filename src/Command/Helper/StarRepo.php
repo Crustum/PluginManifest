@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Crustum\PluginManifest\Command\Helper;
 
-use Cake\Console\ConsoleIo;
+use Cake\Console\ConsoleIoInterface;
 use Cake\Core\Plugin;
 use Crustum\PluginManifest\Manifest\GitHubRepoResolver;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
@@ -27,14 +27,14 @@ class StarRepo
     /**
      * Ask user to star repository on GitHub if applicable
      *
-     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param \Cake\Console\ConsoleIoInterface $io Console IO
      * @param string $pluginName Plugin name
      * @param array<string, mixed> $starRepoAsset Star repo asset from manifest
      * @param array<string, mixed> $options Command options
      * @return void
      */
     public function askToStarRepo(
-        ConsoleIo $io,
+        ConsoleIoInterface $io,
         string $pluginName,
         array $starRepoAsset,
         array $options,

@@ -4,8 +4,6 @@ declare(strict_types=1);
 namespace Crustum\PluginManifest\Command;
 
 use Cake\Command\Command;
-use Cake\Console\Arguments;
-use Cake\Console\ConsoleIo;
 use Cake\Console\ConsoleOptionParser;
 use Cake\Core\Plugin;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
@@ -37,26 +35,22 @@ class ManifestListCommand extends Command
     /**
      * Execute command
      *
-     * @param \Cake\Console\Arguments $args Arguments
-     * @param \Cake\Console\ConsoleIo $io Console IO
      * @return int|null Exit code
      */
-    public function execute(Arguments $args, ConsoleIo $io): ?int
+    public function execute(): ?int
     {
         $manifest = new ManifestRegistry();
         $plugins = $this->discoverPublishablePlugins();
-
         if ($plugins === []) {
-            $io->warning('No plugins with publishable assets found.');
+            $this->io->warning('No plugins with publishable assets found.');
 
             return static::CODE_SUCCESS;
         }
 
-        $io->out('<info>Available Plugins with Publishable Assets:</info>');
-        $io->out('');
-
+        $this->io->out('<info>Available Plugins with Publishable Assets:</info>');
+        $this->io->out('');
         foreach ($plugins as $pluginName => $pluginData) {
-            $this->displayPluginInfo($io, $pluginName, $pluginData, $manifest);
+            $this->displayPluginInfo($pluginName, $pluginData, $manifest);
         }
 
         return static::CODE_SUCCESS;
@@ -105,9 +99,7 @@ class ManifestListCommand extends Command
         foreach ($manifest as $asset) {
             $tag = $asset['tag'] ?? 'default';
 
-            if (!isset($organized[$tag])) {
-                $organized[$tag] = [];
-            }
+            $organized[$tag] ??= [];
 
             $organized[$tag][] = $asset;
         }
@@ -118,15 +110,14 @@ class ManifestListCommand extends Command
     /**
      * Display plugin information
      *
-     * @param \Cake\Console\ConsoleIo $io Console IO
      * @param string $pluginName Plugin name
      * @param array<string, mixed> $pluginData Plugin data
      * @param \Crustum\PluginManifest\Manifest\ManifestRegistry $manifest Registry
      * @return void
      */
-    protected function displayPluginInfo(ConsoleIo $io, string $pluginName, array $pluginData, ManifestRegistry $manifest): void
+    protected function displayPluginInfo(string $pluginName, array $pluginData, ManifestRegistry $manifest): void
     {
-        $io->out("<success>{$pluginName}</success>");
+        $this->io->out("<success>{$pluginName}</success>");
 
         $assets = $pluginData['assets'];
         $totalAssets = 0;
@@ -155,12 +146,12 @@ class ManifestListCommand extends Command
                 $status = '<warning>[ ]</warning>';
             }
 
-            $io->out("  {$status} {$tag}: {$tagInstalled}/{$tagTotal} installed");
+            $this->io->out("  {$status} {$tag}: {$tagInstalled}/{$tagTotal} installed");
         }
 
         $totalStatus = $installedAssets === $totalAssets ? 'All installed' : "{$installedAssets}/{$totalAssets} installed";
-        $io->out("  <comment>Total: {$totalStatus}</comment>");
-        $io->out('');
+        $this->io->out("  <comment>Total: {$totalStatus}</comment>");
+        $this->io->out('');
     }
 
     /**

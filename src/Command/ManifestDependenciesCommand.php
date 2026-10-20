@@ -4,8 +4,6 @@ declare(strict_types=1);
 namespace Crustum\PluginManifest\Command;
 
 use Cake\Command\Command;
-use Cake\Console\Arguments;
-use Cake\Console\ConsoleIo;
 use Cake\Console\ConsoleOptionParser;
 use Cake\Core\Plugin;
 use Crustum\PluginManifest\Manifest\DependencyResolver;
@@ -59,26 +57,22 @@ class ManifestDependenciesCommand extends Command
     /**
      * Implement this method with your command's logic
      *
-     * @param \Cake\Console\Arguments $args The command arguments
-     * @param \Cake\Console\ConsoleIo $io The console io
      * @return int|null The exit code or null for success
      */
-    public function execute(Arguments $args, ConsoleIo $io): ?int
+    public function execute(): ?int
     {
-        $pluginFilter = $args->getOption('plugin');
-        $showStatus = (bool)$args->getOption('status');
-        $showTree = (bool)$args->getOption('tree');
-
+        $pluginFilter = $this->args->getOption('plugin');
+        $showStatus = (bool)$this->args->getOption('status');
+        $showTree = (bool)$this->args->getOption('tree');
         if (!$pluginFilter) {
-            return $this->showAllPluginDependencies($io, $showStatus);
+            return $this->showAllPluginDependencies($showStatus);
         }
 
         $pluginName = (string)$pluginFilter;
-
         try {
             $plugin = Plugin::getCollection()->get($pluginName);
         } catch (Exception) {
-            $io->error("Plugin '{$pluginName}' not found.");
+            $this->io->error("Plugin '{$pluginName}' not found.");
 
             return static::CODE_ERROR;
         }
@@ -86,29 +80,28 @@ class ManifestDependenciesCommand extends Command
         $pluginClass = $plugin::class;
         $assets = ManifestResolver::manifestFor($pluginClass);
         if ($assets === null) {
-            $io->error("Plugin '{$pluginName}' does not provide a manifest.");
+            $this->io->error("Plugin '{$pluginName}' does not provide a manifest.");
 
             return static::CODE_ERROR;
         }
 
         if ($showTree) {
-            return $this->showDependencyTree($pluginName, $io, $showStatus);
+            return $this->showDependencyTree($pluginName, $showStatus);
         }
 
-        return $this->showDirectDependencies($pluginName, $assets, $io, $showStatus);
+        return $this->showDirectDependencies($pluginName, $assets, $showStatus);
     }
 
     /**
      * Show all plugins with dependencies
      *
-     * @param \Cake\Console\ConsoleIo $io Console IO
      * @param bool $showStatus Show installation status
      * @return int Exit code
      */
-    protected function showAllPluginDependencies(ConsoleIo $io, bool $showStatus): int
+    protected function showAllPluginDependencies(bool $showStatus): int
     {
-        $io->out('<info>Plugins with dependencies:</info>');
-        $io->out('');
+        $this->io->out('<info>Plugins with dependencies:</info>');
+        $this->io->out('');
 
         $found = false;
         foreach (Plugin::loaded() as $pluginName) {
@@ -128,17 +121,17 @@ class ManifestDependenciesCommand extends Command
 
                 if ($hasDeps) {
                     $found = true;
-                    $io->out("<warning>{$pluginName}</warning>");
+                    $this->io->out("<warning>{$pluginName}</warning>");
 
                     if ($showStatus) {
-                        $this->showPluginDependencyStatus($pluginName, $io);
+                        $this->showPluginDependencyStatus($pluginName);
                     }
                 }
             }
         }
 
         if (!$found) {
-            $io->info('No plugins with dependencies found.');
+            $this->io->info('No plugins with dependencies found.');
         }
 
         return static::CODE_SUCCESS;
@@ -149,18 +142,16 @@ class ManifestDependenciesCommand extends Command
      *
      * @param string $pluginName Plugin name
      * @param array<int, array<string, mixed>> $assets Resolved manifest operations
-     * @param \Cake\Console\ConsoleIo $io Console IO
      * @param bool $showStatus Show installation status
      * @return int Exit code
      */
     protected function showDirectDependencies(
         string $pluginName,
         array $assets,
-        ConsoleIo $io,
         bool $showStatus,
     ): int {
-        $io->out("<info>{$pluginName} Dependencies:</info>");
-        $io->out('');
+        $this->io->out("<info>{$pluginName} Dependencies:</info>");
+        $this->io->out('');
 
         $dependencyAsset = null;
 
@@ -172,14 +163,14 @@ class ManifestDependenciesCommand extends Command
         }
 
         if ($dependencyAsset === null) {
-            $io->info('No dependencies declared.');
+            $this->io->info('No dependencies declared.');
 
             return static::CODE_SUCCESS;
         }
 
         $dependencies = $dependencyAsset['dependencies'] ?? [];
         if (empty($dependencies)) {
-            $io->info('No dependencies declared.');
+            $this->io->info('No dependencies declared.');
 
             return static::CODE_SUCCESS;
         }
@@ -200,16 +191,16 @@ class ManifestDependenciesCommand extends Command
                 $icon = $installed ? '✓' : '✗';
                 $statusLabel = $installed ? '<success>installed</success>' : '<error>not installed</error>';
 
-                $io->out("├── <warning>{$depName}</warning> ({$typeLabel}) {$icon} {$statusLabel}");
-                $io->out("│   Tags: {$tagList}");
-                $io->out("│   Reason: {$reason}");
+                $this->io->out("├── <warning>{$depName}</warning> ({$typeLabel}) {$icon} {$statusLabel}");
+                $this->io->out("│   Tags: {$tagList}");
+                $this->io->out("│   Reason: {$reason}");
             } else {
-                $io->out("├── <warning>{$depName}</warning> ({$typeLabel})");
-                $io->out("│   Tags: {$tagList}");
-                $io->out("│   Reason: {$reason}");
+                $this->io->out("├── <warning>{$depName}</warning> ({$typeLabel})");
+                $this->io->out("│   Tags: {$tagList}");
+                $this->io->out("│   Reason: {$reason}");
             }
 
-            $io->out('');
+            $this->io->out('');
         }
 
         return static::CODE_SUCCESS;
@@ -219,14 +210,13 @@ class ManifestDependenciesCommand extends Command
      * Show complete dependency tree for a plugin
      *
      * @param string $pluginName Plugin name
-     * @param \Cake\Console\ConsoleIo $io Console IO
      * @param bool $showStatus Show installation status
      * @return int Exit code
      */
-    protected function showDependencyTree(string $pluginName, ConsoleIo $io, bool $showStatus): int
+    protected function showDependencyTree(string $pluginName, bool $showStatus): int
     {
-        $io->out("<info>{$pluginName} Complete Dependency Tree:</info>");
-        $io->out('');
+        $this->io->out("<info>{$pluginName} Complete Dependency Tree:</info>");
+        $this->io->out('');
 
         $availablePlugins = $this->discoverAvailablePlugins();
         $resolver = new DependencyResolver();
@@ -238,13 +228,13 @@ class ManifestDependenciesCommand extends Command
                 ['force_all' => true],
             );
         } catch (InvalidArgumentException $invalidArgumentException) {
-            $io->error($invalidArgumentException->getMessage());
+            $this->io->error($invalidArgumentException->getMessage());
 
             return static::CODE_ERROR;
         }
 
         if ($tree === []) {
-            $io->info('No dependencies found.');
+            $this->io->info('No dependencies found.');
 
             return static::CODE_SUCCESS;
         }
@@ -261,9 +251,9 @@ class ManifestDependenciesCommand extends Command
                 $icon = $installed ? '✓' : '✗';
                 $statusLabel = $installed ? '<success>installed</success>' : '<error>not installed</error>';
 
-                $io->out("{$indent}" . ($index + 1) . ". <warning>{$depName}</warning> {$icon} {$statusLabel}");
+                $this->io->out("{$indent}" . ($index + 1) . ". <warning>{$depName}</warning> {$icon} {$statusLabel}");
             } else {
-                $io->out("{$indent}" . ($index + 1) . ". <warning>{$depName}</warning>");
+                $this->io->out("{$indent}" . ($index + 1) . ". <warning>{$depName}</warning>");
             }
         }
 
@@ -274,23 +264,22 @@ class ManifestDependenciesCommand extends Command
      * Show plugin dependency status
      *
      * @param string $pluginName Plugin name
-     * @param \Cake\Console\ConsoleIo $io Console IO
      * @return void
      */
-    protected function showPluginDependencyStatus(string $pluginName, ConsoleIo $io): void
+    protected function showPluginDependencyStatus(string $pluginName): void
     {
         $registry = new ManifestRegistry();
         $dependencies = $registry->getDependencies($pluginName);
 
         if ($dependencies === []) {
-            $io->out('  No dependencies installed');
+            $this->io->out('  No dependencies installed');
 
             return;
         }
 
         foreach ($dependencies as $depName => $config) {
             $installedAt = $config['installed_at'] ?? 'unknown';
-            $io->out("  ├── {$depName} (installed: {$installedAt})");
+            $this->io->out("  ├── {$depName} (installed: {$installedAt})");
         }
     }
 
@@ -332,9 +321,7 @@ class ManifestDependenciesCommand extends Command
 
         foreach ($assets as $asset) {
             $tag = $asset['tag'] ?? 'default';
-            if (!isset($organized[$tag])) {
-                $organized[$tag] = [];
-            }
+            $organized[$tag] ??= [];
 
             $asset['plugin'] = $pluginName;
             $organized[$tag][] = $asset;

@@ -4,8 +4,6 @@ declare(strict_types=1);
 namespace Crustum\PluginManifest\Command;
 
 use Cake\Command\Command;
-use Cake\Console\Arguments;
-use Cake\Console\ConsoleIo;
 use Cake\Console\ConsoleOptionParser;
 use Cake\Core\Plugin;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
@@ -57,61 +55,54 @@ class ManifestStatusCommand extends Command
     /**
      * Implement this method with your command's logic
      *
-     * @param \Cake\Console\Arguments $args The command arguments
-     * @param \Cake\Console\ConsoleIo $io The console io
      * @return int|null The exit code or null for success
      */
-    public function execute(Arguments $args, ConsoleIo $io): ?int
+    public function execute(): ?int
     {
-        $pluginFilter = $args->getOption('plugin');
-        $showDependencies = (bool)$args->getOption('dependencies');
-        $all = (bool)$args->getOption('all');
-
+        $pluginFilter = $this->args->getOption('plugin');
+        $showDependencies = (bool)$this->args->getOption('dependencies');
+        $all = (bool)$this->args->getOption('all');
         $registry = new ManifestRegistry();
-
         if ($all) {
-            return $this->showAllPluginStatus($io, $showDependencies, $registry);
+            return $this->showAllPluginStatus($showDependencies, $registry);
         }
 
         if (!$pluginFilter) {
-            $io->error('Please specify --plugin or use --all');
+            $this->io->error('Please specify --plugin or use --all');
 
             return static::CODE_ERROR;
         }
 
         $pluginName = (string)$pluginFilter;
-
         try {
             Plugin::getCollection()->get($pluginName);
         } catch (Exception) {
-            $io->error("Plugin '{$pluginName}' not found.");
+            $this->io->error("Plugin '{$pluginName}' not found.");
 
             return static::CODE_ERROR;
         }
 
-        return $this->showPluginStatus($pluginName, $io, $showDependencies, $registry);
+        return $this->showPluginStatus($pluginName, $showDependencies, $registry);
     }
 
     /**
      * Show status for all plugins
      *
-     * @param \Cake\Console\ConsoleIo $io Console IO
      * @param bool $showDependencies Show dependencies
      * @param \Crustum\PluginManifest\Manifest\ManifestRegistry $registry Registry
      * @return int Exit code
      */
     protected function showAllPluginStatus(
-        ConsoleIo $io,
         bool $showDependencies,
         ManifestRegistry $registry,
     ): int {
-        $io->out('<info>Plugin Installation Status:</info>');
-        $io->out('');
+        $this->io->out('<info>Plugin Installation Status:</info>');
+        $this->io->out('');
 
         $allStatuses = $registry->getAllPluginStatuses();
 
         if ($allStatuses === []) {
-            $io->info('No plugins have installed assets.');
+            $this->io->info('No plugins have installed assets.');
 
             return static::CODE_SUCCESS;
         }
@@ -120,17 +111,17 @@ class ManifestStatusCommand extends Command
             $icon = $status['installed'] ? '[+]' : '[-]';
             $statusLabel = $status['installed'] ? '<success>installed</success>' : '<error>not installed</error>';
 
-            $io->out("<warning>{$pluginName}</warning> {$icon} {$statusLabel}");
+            $this->io->out("<warning>{$pluginName}</warning> {$icon} {$statusLabel}");
 
             if ($showDependencies && !empty($status['dependencies'])) {
-                $io->out('  Dependencies:');
+                $this->io->out('  Dependencies:');
                 foreach ($status['dependencies'] as $depName => $depConfig) {
                     $installedAt = $depConfig['installed_at'] ?? 'unknown';
-                    $io->out("    ├── {$depName} (installed: {$installedAt})");
+                    $this->io->out("    ├── {$depName} (installed: {$installedAt})");
                 }
             }
 
-            $io->out('');
+            $this->io->out('');
         }
 
         return static::CODE_SUCCESS;
@@ -140,68 +131,66 @@ class ManifestStatusCommand extends Command
      * Show status for specific plugin
      *
      * @param string $pluginName Plugin name
-     * @param \Cake\Console\ConsoleIo $io Console IO
      * @param bool $showDependencies Show dependencies
      * @param \Crustum\PluginManifest\Manifest\ManifestRegistry $registry Registry
      * @return int Exit code
      */
     protected function showPluginStatus(
         string $pluginName,
-        ConsoleIo $io,
         bool $showDependencies,
         ManifestRegistry $registry,
     ): int {
         $status = $registry->getPluginStatus($pluginName);
 
-        $io->out("<info>{$pluginName} Installation Status:</info>");
-        $io->out('');
+        $this->io->out("<info>{$pluginName} Installation Status:</info>");
+        $this->io->out('');
 
         if (!$status['installed']) {
-            $io->warning('No assets installed for this plugin.');
+            $this->io->warning('No assets installed for this plugin.');
 
             if ($showDependencies) {
-                $io->out('');
-                $io->info('No dependencies installed.');
+                $this->io->out('');
+                $this->io->info('No dependencies installed.');
             }
 
             return static::CODE_SUCCESS;
         }
 
-        $io->out('<success>Assets Installed:</success>');
+        $this->io->out('<success>Assets Installed:</success>');
         foreach ($status['operations'] as $operation => $tags) {
-            $io->out("  Operation: {$operation}");
+            $this->io->out("  Operation: {$operation}");
             foreach ($tags as $tag => $assets) {
                 $count = count($assets);
-                $io->out("    ├── Tag '{$tag}': {$count} asset(s)");
+                $this->io->out("    ├── Tag '{$tag}': {$count} asset(s)");
             }
         }
 
         if ($showDependencies) {
-            $io->out('');
+            $this->io->out('');
             if (empty($status['dependencies'])) {
-                $io->info('No dependencies installed.');
+                $this->io->info('No dependencies installed.');
             } else {
-                $io->out('<success>Dependencies Installed:</success>');
+                $this->io->out('<success>Dependencies Installed:</success>');
                 foreach ($status['dependencies'] as $depName => $depConfig) {
                     $installedAt = $depConfig['installed_at'] ?? 'unknown';
                     $required = $depConfig['required'] ?? false;
                     $typeLabel = $required ? 'required' : 'optional';
 
-                    $io->out("  ├── <warning>{$depName}</warning> ({$typeLabel})");
-                    $io->out("  │   Installed: {$installedAt}");
+                    $this->io->out("  ├── <warning>{$depName}</warning> ({$typeLabel})");
+                    $this->io->out("  │   Installed: {$installedAt}");
 
                     if (isset($depConfig['tags'])) {
                         $tags = is_array($depConfig['tags']) ? implode(', ', $depConfig['tags']) : 'all';
-                        $io->out("  │   Tags: {$tags}");
+                        $this->io->out("  │   Tags: {$tags}");
                     }
                 }
             }
 
             if (!empty($status['depended_by'])) {
-                $io->out('');
-                $io->out('<warning>Used By:</warning>');
+                $this->io->out('');
+                $this->io->out('<warning>Used By:</warning>');
                 foreach ($status['depended_by'] as $dependent) {
-                    $io->out("  ├── {$dependent}");
+                    $this->io->out("  ├── {$dependent}");
                 }
             }
         }
@@ -247,9 +236,7 @@ class ManifestStatusCommand extends Command
 
         foreach ($assets as $asset) {
             $tag = $asset['tag'] ?? 'default';
-            if (!isset($organized[$tag])) {
-                $organized[$tag] = [];
-            }
+            $organized[$tag] ??= [];
 
             $asset['plugin'] = $pluginName;
             $organized[$tag][] = $asset;

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Crustum\PluginManifest\Command\Helper;
 
-use Cake\Console\ConsoleIo;
+use Cake\Console\ConsoleIoInterface;
 use Crustum\PluginManifest\Manifest\Installer;
 use Crustum\PluginManifest\Manifest\InstallResult;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
@@ -34,12 +34,12 @@ class Installation
     /**
      * Install assets from all plugins
      *
-     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param \Cake\Console\ConsoleIoInterface $io Console IO
      * @param array<string, array<string, mixed>> $plugins Plugin data
      * @param array<string, mixed> $options Install options
      * @return int Exit code
      */
-    public function installAllPlugins(ConsoleIo $io, array $plugins, array $options): int
+    public function installAllPlugins(ConsoleIoInterface $io, array $plugins, array $options): int
     {
         $selections = [];
         foreach (array_keys($plugins) as $pluginName) {
@@ -55,13 +55,13 @@ class Installation
     /**
      * Install assets for interactive or batch selections.
      *
-     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param \Cake\Console\ConsoleIoInterface $io Console IO
      * @param array<string, array<string, mixed>> $plugins Plugin data
      * @param list<array{plugin: string, tags: list<string>|null}> $selections Targets
      * @param array<string, mixed> $options Install options
      * @return int Exit code
      */
-    public function installSelections(ConsoleIo $io, array $plugins, array $selections, array $options): int
+    public function installSelections(ConsoleIoInterface $io, array $plugins, array $selections, array $options): int
     {
         $totalSuccess = 0;
         $totalErrors = 0;
@@ -104,7 +104,7 @@ class Installation
     /**
      * Install assets from a single plugin
      *
-     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param \Cake\Console\ConsoleIoInterface $io Console IO
      * @param string $pluginName Plugin name
      * @param array<string, mixed> $pluginData Plugin data
      * @param list<string>|string|null $tagFilter Tag filter (null = all tags)
@@ -112,7 +112,7 @@ class Installation
      * @return int Exit code
      */
     public function installPlugin(
-        ConsoleIo $io,
+        ConsoleIoInterface $io,
         string $pluginName,
         array $pluginData,
         array|string|null $tagFilter,
@@ -219,11 +219,11 @@ class Installation
     /**
      * Print install result lines (expands batch results).
      *
-     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param \Cake\Console\ConsoleIoInterface $io Console IO
      * @param \Crustum\PluginManifest\Manifest\InstallResult $result Install result
      * @return void
      */
-    protected function displayInstallResult(ConsoleIo $io, InstallResult $result): void
+    protected function displayInstallResult(ConsoleIoInterface $io, InstallResult $result): void
     {
         $batch = $result->getBatchResults();
         if ($batch !== null && $batch !== []) {

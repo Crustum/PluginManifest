@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Crustum\PluginManifest\Command\Helper;
 
-use Cake\Console\ConsoleIo;
+use Cake\Console\ConsoleIoInterface;
 use Cake\Core\Plugin;
 use Crustum\PluginManifest\Manifest\ManifestResolver;
 use Exception;
@@ -19,10 +19,10 @@ class PluginDiscovery
      * Covers both the {@see ManifestInterface} contract and standalone
      * provider classes (see {@see ManifestResolver}).
      *
-     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param \Cake\Console\ConsoleIoInterface $io Console IO
      * @return array<string, array<string, mixed>> Plugin data keyed by plugin name
      */
-    public function discoverPublishablePlugins(ConsoleIo $io): array
+    public function discoverPublishablePlugins(ConsoleIoInterface $io): array
     {
         $plugins = [];
 
@@ -65,9 +65,7 @@ class PluginDiscovery
 
         foreach ($assets as $asset) {
             $tag = $asset['tag'] ?? 'default';
-            if (!isset($organized[$tag])) {
-                $organized[$tag] = [];
-            }
+            $organized[$tag] ??= [];
 
             $asset['plugin'] = $pluginName;
             $organized[$tag][] = $asset;

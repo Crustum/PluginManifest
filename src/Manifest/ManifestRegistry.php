@@ -37,17 +37,11 @@ class ManifestRegistry
     ): void {
         $manifest = $this->load();
 
-        if (!isset($manifest[$plugin])) {
-            $manifest[$plugin] = [];
-        }
+        $manifest[$plugin] ??= [];
 
-        if (!isset($manifest[$plugin][$operationType])) {
-            $manifest[$plugin][$operationType] = [];
-        }
+        $manifest[$plugin][$operationType] ??= [];
 
-        if (!isset($manifest[$plugin][$operationType][$tag])) {
-            $manifest[$plugin][$operationType][$tag] = [];
-        }
+        $manifest[$plugin][$operationType][$tag] ??= [];
 
         $assetData = $this->normalizePathsForStorage($assetData);
 
@@ -447,13 +441,9 @@ class ManifestRegistry
     ): void {
         $manifest = $this->load();
 
-        if (!isset($manifest['_dependencies'])) {
-            $manifest['_dependencies'] = [];
-        }
+        $manifest['_dependencies'] ??= [];
 
-        if (!isset($manifest['_dependencies'][$parentPlugin])) {
-            $manifest['_dependencies'][$parentPlugin] = [];
-        }
+        $manifest['_dependencies'][$parentPlugin] ??= [];
 
         $manifest['_dependencies'][$parentPlugin][$dependencyPlugin] = array_merge($dependencyConfig, [
             'installed_at' => date('Y-m-d H:i:s'),
@@ -579,9 +569,7 @@ class ManifestRegistry
     {
         $manifest = $this->load();
 
-        if (!isset($manifest['_star_prompts'])) {
-            $manifest['_star_prompts'] = [];
-        }
+        $manifest['_star_prompts'] ??= [];
 
         $manifest['_star_prompts'][$plugin] = [
             'asked_at' => date('Y-m-d H:i:s'),

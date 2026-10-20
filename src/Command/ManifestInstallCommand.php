@@ -4,8 +4,6 @@ declare(strict_types=1);
 namespace Crustum\PluginManifest\Command;
 
 use Cake\Command\Command;
-use Cake\Console\Arguments;
-use Cake\Console\ConsoleIo;
 use Cake\Console\ConsoleOptionParser;
 use Crustum\PluginManifest\Command\Helper\Installation;
 use Crustum\PluginManifest\Command\Helper\InstallSelection;
@@ -96,43 +94,37 @@ class ManifestInstallCommand extends Command
     /**
      * Implement this method with your command's logic
      *
-     * @param \Cake\Console\Arguments $args The command arguments
-     * @param \Cake\Console\ConsoleIo $io The console io
      * @return int|null The exit code or null for success
      */
-    public function execute(Arguments $args, ConsoleIo $io): ?int
+    public function execute(): ?int
     {
         $manifest = new ManifestRegistry();
         $bootstrapAppender = new BootstrapAppender();
         $configMerger = new ConfigMerger();
         $envInstaller = new EnvInstaller();
-
         $installer = new Installer($bootstrapAppender, $configMerger, $envInstaller, $manifest);
         $dependencyResolver = new DependencyResolver();
         $dependencyInstaller = new DependencyInstaller($dependencyResolver, $installer, $manifest);
         $installer = new Installer($bootstrapAppender, $configMerger, $envInstaller, $manifest, $dependencyInstaller);
-
-        $pluginFilter = $args->getOption('plugin');
-        $tagFilter = $args->getOption('tag');
-        $all = $args->getOption('all');
-        $force = $args->getOption('force');
-        $existing = $args->getOption('existing');
-        $dryRun = $args->getOption('dry_run');
-        $withDependencies = $args->getOption('with_dependencies');
-        $allDeps = $args->getOption('all_deps');
-        $noDependencies = $args->getOption('no_dependencies');
-        $updateDependencies = $args->getOption('update_dependencies');
-
+        $pluginFilter = $this->args->getOption('plugin');
+        $tagFilter = $this->args->getOption('tag');
+        $all = $this->args->getOption('all');
+        $force = $this->args->getOption('force');
+        $existing = $this->args->getOption('existing');
+        $dryRun = $this->args->getOption('dry_run');
+        $withDependencies = $this->args->getOption('with_dependencies');
+        $allDeps = $this->args->getOption('all_deps');
+        $noDependencies = $this->args->getOption('no_dependencies');
+        $updateDependencies = $this->args->getOption('update_dependencies');
         $outputFormatter = new OutputFormatter();
         if ($dryRun) {
-            $outputFormatter->displayDryRunNote($io);
+            $outputFormatter->displayDryRunNote($this->io);
         }
 
         $pluginDiscovery = new PluginDiscovery();
-        $plugins = $pluginDiscovery->discoverPublishablePlugins($io);
-
+        $plugins = $pluginDiscovery->discoverPublishablePlugins($this->io);
         if ($plugins === []) {
-            $io->warning('No plugins with publishable assets found.');
+            $this->io->warning('No plugins with publishable assets found.');
 
             return static::CODE_SUCCESS;
         }
@@ -145,29 +137,27 @@ class ManifestInstallCommand extends Command
             'all_deps' => $allDeps,
             'no_dependencies' => $noDependencies,
             'update_dependencies' => $updateDependencies,
-            'console_io' => $io,
+            'console_io' => $this->io,
         ];
-
         $installation = $this->createInstallationHelper($installer, $manifest);
-
         if ($all) {
-            return $installation->installAllPlugins($io, $plugins, $options);
+            return $installation->installAllPlugins($this->io, $plugins, $options);
         }
 
         if (!$pluginFilter) {
-            $selections = $this->createInstallSelection()->prompt($io, $plugins);
+            $selections = $this->createInstallSelection()->prompt($this->io, $plugins);
 
             if ($selections === null || $selections === []) {
-                $io->info('Installation cancelled.');
+                $this->io->info('Installation cancelled.');
 
                 return static::CODE_SUCCESS;
             }
 
-            return $installation->installSelections($io, $plugins, $selections, $options);
+            return $installation->installSelections($this->io, $plugins, $selections, $options);
         }
 
         if (!isset($plugins[$pluginFilter])) {
-            $io->error("Plugin '{$pluginFilter}' not found or does not provide a manifest.");
+            $this->io->error("Plugin '{$pluginFilter}' not found or does not provide a manifest.");
 
             return static::CODE_ERROR;
         }
@@ -175,7 +165,7 @@ class ManifestInstallCommand extends Command
         $pluginName = is_string($pluginFilter) ? $pluginFilter : '';
         $tag = is_string($tagFilter) ? $tagFilter : null;
 
-        return $installation->installPlugin($io, $pluginName, $plugins[$pluginName], $tag, $options);
+        return $installation->installPlugin($this->io, $pluginName, $plugins[$pluginName], $tag, $options);
     }
 
     /**
