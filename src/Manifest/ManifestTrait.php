@@ -7,7 +7,8 @@ namespace Crustum\PluginManifest\Manifest;
  * Trait providing helper methods for plugin manifest definitions
  *
  * This trait provides convenient methods for defining different types of
- * installable assets in plugin manifest() methods.
+ * installable assets in plugin manifest() methods. It delegates to
+ * {@see ManifestOps}, keeping a single source of truth for operation shapes.
  */
 trait ManifestTrait
 {
@@ -20,10 +21,7 @@ trait ManifestTrait
      */
     protected static function getPluginName(): string
     {
-        $pluginName = static::class;
-        $pluginName = substr($pluginName, strrpos($pluginName, '\\') + 1);
-
-        return str_replace('Plugin', '', $pluginName);
+        return ManifestOps::pluginName(static::class);
     }
 
     /**
@@ -41,18 +39,7 @@ trait ManifestTrait
         string $source,
         ?string $destination = null,
     ): array {
-        $destination ??= CONFIG . 'Migrations';
-
-        return [[
-            'type' => OperationType::COPY,
-            'tag' => Tag::MIGRATIONS,
-            'source' => $source,
-            'destination' => $destination,
-            'options' => [
-                'plugin_namespace' => static::getPluginName(),
-                'rename_with_plugin' => true,
-            ],
-        ]];
+        return ManifestOps::manifestMigrations(static::getPluginName(), $source, $destination);
     }
 
     /**
@@ -71,12 +58,7 @@ trait ManifestTrait
         string $destination,
         bool $canOverwrite = false,
     ): array {
-        return [[
-            'type' => $canOverwrite ? OperationType::COPY : OperationType::COPY_SAFE,
-            'tag' => Tag::CONFIG,
-            'source' => $source,
-            'destination' => $destination,
-        ]];
+        return ManifestOps::manifestConfig(static::getPluginName(), $source, $destination, $canOverwrite);
     }
 
     /**
@@ -93,18 +75,7 @@ trait ManifestTrait
         array $envVars,
         ?string $comment = null,
     ): array {
-        $pluginName = static::getPluginName();
-
-        $comment ??= '# ' . $pluginName . ' Configuration';
-
-        return [[
-            'type' => OperationType::APPEND_ENV,
-            'tag' => Tag::ENVS,
-            'env_vars' => $envVars,
-            'destination' => ROOT . DS . '.env',
-            'comment' => $comment,
-            'plugin' => $pluginName,
-        ]];
+        return ManifestOps::manifestEnvVars(static::getPluginName(), $envVars, $comment);
     }
 
     /**
@@ -119,16 +90,7 @@ trait ManifestTrait
     protected static function manifestEnvExample(
         string $source,
     ): array {
-        $pluginName = static::getPluginName();
-
-        $destination = ROOT . DS . '.env.' . strtolower($pluginName) . '.example';
-
-        return [[
-            'type' => OperationType::COPY_SAFE,
-            'tag' => Tag::ENVS,
-            'source' => $source,
-            'destination' => $destination,
-        ]];
+        return ManifestOps::manifestEnvExample(static::getPluginName(), $source);
     }
 
     /**
@@ -144,15 +106,7 @@ trait ManifestTrait
         string $source,
         ?string $destination = null,
     ): array {
-        $pluginName = static::getPluginName();
-        $destination ??= WWW_ROOT . strtolower($pluginName);
-
-        return [[
-            'type' => OperationType::COPY,
-            'tag' => Tag::WEBROOT,
-            'source' => $source,
-            'destination' => $destination,
-        ]];
+        return ManifestOps::manifestWebroot(static::getPluginName(), $source, $destination);
     }
 
     /**
@@ -173,18 +127,7 @@ trait ManifestTrait
         ?string $marker = null,
         string $bootstrapFile = 'bootstrap.php',
     ): array {
-        $pluginName = static::getPluginName();
-
-        $marker ??= '// ' . $pluginName . ' Configuration';
-
-        return [[
-            'type' => OperationType::APPEND,
-            'tag' => Tag::BOOTSTRAP,
-            'content' => $content,
-            'destination' => CONFIG . $bootstrapFile,
-            'marker' => $marker,
-            'plugin' => $pluginName,
-        ]];
+        return ManifestOps::manifestBootstrapAppend(static::getPluginName(), $content, $marker, $bootstrapFile);
     }
 
     /**
@@ -198,7 +141,7 @@ trait ManifestTrait
         string $content,
         ?string $marker = null,
     ): array {
-        return static::manifestBootstrapAppend($content, $marker, 'bootstrap_after.php');
+        return ManifestOps::manifestBootstrapAfter(static::getPluginName(), $content, $marker);
     }
 
     /**
@@ -212,7 +155,7 @@ trait ManifestTrait
         string $content,
         ?string $marker = null,
     ): array {
-        return static::manifestBootstrapAppend($content, $marker, 'plugin_bootstrap_after.php');
+        return ManifestOps::manifestPluginBootstrapAfter(static::getPluginName(), $content, $marker);
     }
 
     /**
@@ -231,14 +174,7 @@ trait ManifestTrait
         array $configValue,
         string $configFile = 'app_local.php',
     ): array {
-        return [[
-            'type' => OperationType::MERGE,
-            'tag' => Tag::CONFIG,
-            'key' => $configKey,
-            'value' => $configValue,
-            'destination' => CONFIG . $configFile,
-            'plugin' => static::getPluginName(),
-        ]];
+        return ManifestOps::manifestConfigMerge(static::getPluginName(), $configKey, $configValue, $configFile);
     }
 
     /**
@@ -252,12 +188,7 @@ trait ManifestTrait
      */
     protected static function manifestDependencies(array $dependencies): array
     {
-        return [[
-            'type' => OperationType::DEPENDENCIES,
-            'tag' => Tag::DEPENDENCIES,
-            'dependencies' => $dependencies,
-            'plugin' => static::getPluginName(),
-        ]];
+        return ManifestOps::manifestDependencies(static::getPluginName(), $dependencies);
     }
 
     /**
@@ -272,12 +203,6 @@ trait ManifestTrait
      */
     protected static function manifestStarRepo(?string $vendorSlashRepoName = null, bool $defaultAnswer = true): array
     {
-        return [[
-            'type' => OperationType::STAR_REPO,
-            'tag' => Tag::STAR_REPO,
-            'repo' => $vendorSlashRepoName,
-            'default_answer' => $defaultAnswer,
-            'plugin' => static::getPluginName(),
-        ]];
+        return ManifestOps::manifestStarRepo(static::getPluginName(), $vendorSlashRepoName, $defaultAnswer);
     }
 }

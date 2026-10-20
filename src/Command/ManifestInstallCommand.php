@@ -167,7 +167,7 @@ class ManifestInstallCommand extends Command
         }
 
         if (!isset($plugins[$pluginFilter])) {
-            $io->error("Plugin '{$pluginFilter}' not found or does not implement ManifestInterface.");
+            $io->error("Plugin '{$pluginFilter}' not found or does not provide a manifest.");
 
             return static::CODE_ERROR;
         }

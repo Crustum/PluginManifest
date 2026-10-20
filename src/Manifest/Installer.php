@@ -231,7 +231,17 @@ class Installer
             );
         }
 
-        file_put_contents($destinationFile, $replaced);
+        $this->createParentDirectory($destinationDir);
+
+        if (file_put_contents($destinationFile, $replaced) === false) {
+            return new InstallResult(
+                false,
+                $sourceFile,
+                $destinationFile,
+                'error',
+                'Could not write migration file',
+            );
+        }
 
         return new InstallResult(true, $sourceFile, $destinationFile, 'installed', "Installed as {$newBasename}");
     }

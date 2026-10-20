@@ -8,8 +8,8 @@ use Cake\Console\Arguments;
 use Cake\Console\ConsoleIo;
 use Cake\Console\ConsoleOptionParser;
 use Cake\Core\Plugin;
-use Crustum\PluginManifest\Manifest\ManifestInterface;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
+use Crustum\PluginManifest\Manifest\ManifestResolver;
 use Override;
 
 class ManifestListCommand extends Command
@@ -63,7 +63,7 @@ class ManifestListCommand extends Command
     }
 
     /**
-     * Discover plugins that implement ManifestInterface
+     * Discover plugins that provide a manifest.
      *
      * @return array<string, array<string, mixed>>
      */
@@ -76,11 +76,11 @@ class ManifestListCommand extends Command
             $plugin = Plugin::getCollection()->get($pluginName);
             $pluginClass = $plugin::class;
 
-            if (!is_subclass_of($pluginClass, ManifestInterface::class)) {
+            $manifest = ManifestResolver::manifestFor($pluginClass);
+            if ($manifest === null) {
                 continue;
             }
 
-            $manifest = $pluginClass::manifest();
             $assets = $this->organizeAssetsByTag($manifest);
 
             $plugins[$pluginName] = [

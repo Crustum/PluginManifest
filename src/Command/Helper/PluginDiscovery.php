@@ -5,7 +5,7 @@ namespace Crustum\PluginManifest\Command\Helper;
 
 use Cake\Console\ConsoleIo;
 use Cake\Core\Plugin;
-use Crustum\PluginManifest\Manifest\ManifestInterface;
+use Crustum\PluginManifest\Manifest\ManifestResolver;
 use Exception;
 
 /**
@@ -14,7 +14,10 @@ use Exception;
 class PluginDiscovery
 {
     /**
-     * Discover plugins that implement ManifestInterface
+     * Discover plugins that provide a manifest.
+     *
+     * Covers both the {@see ManifestInterface} contract and standalone
+     * provider classes (see {@see ManifestResolver}).
      *
      * @param \Cake\Console\ConsoleIo $io Console IO
      * @return array<string, array<string, mixed>> Plugin data keyed by plugin name
@@ -27,18 +30,22 @@ class PluginDiscovery
             $plugin = Plugin::getCollection()->get($pluginName);
             $pluginClass = $plugin::class;
 
-            if (is_subclass_of($pluginClass, ManifestInterface::class)) {
-                try {
-                    $assets = $pluginClass::manifest();
-                    if (!empty($assets)) {
-                        $plugins[$pluginName] = [
-                            'class' => $pluginClass,
-                            'assets' => $this->organizeAssetsByTag($assets, $pluginName),
-                        ];
-                    }
-                } catch (Exception $e) {
-                    $io->warning("Failed to get assets from {$pluginName}: " . $e->getMessage());
-                }
+            $assets = ManifestResolver::manifestFor($pluginClass);
+            if ($assets === null) {
+                continue;
+            }
+
+            if ($assets === []) {
+                continue;
+            }
+
+            try {
+                $plugins[$pluginName] = [
+                    'class' => $pluginClass,
+                    'assets' => $this->organizeAssetsByTag($assets, $pluginName),
+                ];
+            } catch (Exception $e) {
+                $io->warning("Failed to get assets from {$pluginName}: " . $e->getMessage());
             }
         }
 

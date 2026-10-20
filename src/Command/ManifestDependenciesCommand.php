@@ -9,8 +9,8 @@ use Cake\Console\ConsoleIo;
 use Cake\Console\ConsoleOptionParser;
 use Cake\Core\Plugin;
 use Crustum\PluginManifest\Manifest\DependencyResolver;
-use Crustum\PluginManifest\Manifest\ManifestInterface;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
+use Crustum\PluginManifest\Manifest\ManifestResolver;
 use Exception;
 use InvalidArgumentException;
 use Override;
@@ -84,8 +84,9 @@ class ManifestDependenciesCommand extends Command
         }
 
         $pluginClass = $plugin::class;
-        if (!is_subclass_of($pluginClass, ManifestInterface::class)) {
-            $io->error("Plugin '{$pluginName}' does not implement ManifestInterface.");
+        $assets = ManifestResolver::manifestFor($pluginClass);
+        if ($assets === null) {
+            $io->error("Plugin '{$pluginName}' does not provide a manifest.");
 
             return static::CODE_ERROR;
         }
@@ -94,7 +95,7 @@ class ManifestDependenciesCommand extends Command
             return $this->showDependencyTree($pluginName, $io, $showStatus);
         }
 
-        return $this->showDirectDependencies($pluginName, $pluginClass, $io, $showStatus);
+        return $this->showDirectDependencies($pluginName, $assets, $io, $showStatus);
     }
 
     /**
@@ -114,8 +115,8 @@ class ManifestDependenciesCommand extends Command
             $plugin = Plugin::getCollection()->get($pluginName);
             $pluginClass = $plugin::class;
 
-            if (is_subclass_of($pluginClass, ManifestInterface::class)) {
-                $assets = $pluginClass::manifest();
+            $assets = ManifestResolver::manifestFor($pluginClass);
+            if ($assets !== null) {
                 $hasDeps = false;
 
                 foreach ($assets as $asset) {
@@ -147,21 +148,20 @@ class ManifestDependenciesCommand extends Command
      * Show direct dependencies for a plugin
      *
      * @param string $pluginName Plugin name
-     * @param string $pluginClass Plugin class name
+     * @param array<int, array<string, mixed>> $assets Resolved manifest operations
      * @param \Cake\Console\ConsoleIo $io Console IO
      * @param bool $showStatus Show installation status
      * @return int Exit code
      */
     protected function showDirectDependencies(
         string $pluginName,
-        string $pluginClass,
+        array $assets,
         ConsoleIo $io,
         bool $showStatus,
     ): int {
         $io->out("<info>{$pluginName} Dependencies:</info>");
         $io->out('');
 
-        $assets = $pluginClass::manifest();
         $dependencyAsset = null;
 
         foreach ($assets as $asset) {
@@ -295,7 +295,7 @@ class ManifestDependenciesCommand extends Command
     }
 
     /**
-     * Discover available plugins that implement ManifestInterface
+     * Discover available plugins that provide a manifest.
      *
      * @return array<string, array<string, mixed>> Plugin data keyed by plugin name
      */
@@ -307,17 +307,12 @@ class ManifestDependenciesCommand extends Command
             $plugin = Plugin::getCollection()->get($pluginName);
             $pluginClass = $plugin::class;
 
-            if (is_subclass_of($pluginClass, ManifestInterface::class)) {
-                try {
-                    $assets = $pluginClass::manifest();
-                    if (!empty($assets)) {
-                        $plugins[$pluginName] = [
-                            'class' => $pluginClass,
-                            'assets' => $this->organizeAssetsByTag($assets, $pluginName),
-                        ];
-                    }
-                } catch (Exception) {
-                }
+            $assets = ManifestResolver::manifestFor($pluginClass);
+            if (!empty($assets)) {
+                $plugins[$pluginName] = [
+                    'class' => $pluginClass,
+                    'assets' => $this->organizeAssetsByTag($assets, $pluginName),
+                ];
             }
         }
 

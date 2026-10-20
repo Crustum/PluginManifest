@@ -8,8 +8,8 @@ use Cake\Console\Arguments;
 use Cake\Console\ConsoleIo;
 use Cake\Console\ConsoleOptionParser;
 use Cake\Core\Plugin;
-use Crustum\PluginManifest\Manifest\ManifestInterface;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
+use Crustum\PluginManifest\Manifest\ManifestResolver;
 use Exception;
 use Override;
 
@@ -210,7 +210,7 @@ class ManifestStatusCommand extends Command
     }
 
     /**
-     * Discover available plugins that implement ManifestInterface
+     * Discover available plugins that provide a manifest.
      *
      * @return array<string, array<string, mixed>> Plugin data keyed by plugin name
      */
@@ -222,17 +222,12 @@ class ManifestStatusCommand extends Command
             $plugin = Plugin::getCollection()->get($pluginName);
             $pluginClass = $plugin::class;
 
-            if (is_subclass_of($pluginClass, ManifestInterface::class)) {
-                try {
-                    $assets = $pluginClass::manifest();
-                    if (!empty($assets)) {
-                        $plugins[$pluginName] = [
-                            'class' => $pluginClass,
-                            'assets' => $this->organizeAssetsByTag($assets, $pluginName),
-                        ];
-                    }
-                } catch (Exception) {
-                }
+            $assets = ManifestResolver::manifestFor($pluginClass);
+            if (!empty($assets)) {
+                $plugins[$pluginName] = [
+                    'class' => $pluginClass,
+                    'assets' => $this->organizeAssetsByTag($assets, $pluginName),
+                ];
             }
         }
 
