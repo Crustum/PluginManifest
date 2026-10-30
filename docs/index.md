@@ -536,12 +536,12 @@ The dependency declaration creates a clear relationship between your plugin and 
 <a name="installing-with-dependencies"></a>
 ### Installing with Dependencies
 
-The installation command provides several options for handling dependencies. The basic syntax includes the plugin name and dependency flags that control how dependencies are processed.
+The installation command provides several options for handling dependencies. Dependencies install **by default**: required ones without prompting, optional ones with a confirmation prompt each.
 
 **Interactive Installation** prompts for each optional dependency, allowing users to make informed decisions about what to install. Required dependencies are installed automatically without prompting.
 
 ```bash
-bin/cake manifest install --plugin YourPlugin --with-dependencies
+bin/cake manifest install --plugin YourPlugin
 ```
 
 When you run this command, the system displays information about each dependency including whether it's required or optional, which asset tags will be installed, and the reason it's needed. For optional dependencies, you'll be prompted to confirm installation.
@@ -564,7 +564,7 @@ Proceed with installation? [Y/n] y
 **Install All Dependencies** skips prompts and installs all dependencies automatically, including optional ones. This is useful for automated deployments or when you want the complete feature set.
 
 ```bash
-bin/cake manifest install --plugin YourPlugin --with-dependencies --all-deps
+bin/cake manifest install --plugin YourPlugin --all-deps
 ```
 
 **Skip Dependencies** installs only the plugin itself without any dependencies. Use this when dependencies are already installed or when you want to install them separately later.
@@ -576,7 +576,7 @@ bin/cake manifest install --plugin YourPlugin --no-dependencies
 **Dry Run with Dependencies** previews what would be installed without making actual changes. This includes showing which dependencies would be installed and in what order, allowing you to verify the installation plan before proceeding.
 
 ```bash
-bin/cake manifest install --plugin YourPlugin --with-dependencies --dry-run
+bin/cake manifest install --plugin YourPlugin --dry-run
 ```
 
 The system resolves the correct installation order automatically using topological sorting. If Plugin A depends on Plugin B, and Plugin B depends on Plugin C, the installation order will be C, then B, then A. This ensures all dependencies are available when needed.
@@ -617,10 +617,10 @@ When you run `composer update`, dependent plugins may receive updates that inclu
 
 **First Installation:**
 ```bash
-bin/cake manifest install --plugin MyPlugin --with-dependencies
+bin/cake manifest install --plugin MyPlugin
 ```
 
-This installs MyPlugin and all its dependencies. The registry tracks which dependencies were installed and when.
+This installs MyPlugin and all its required dependencies (optional ones prompt). The registry tracks which dependencies were installed and when.
 
 **After Composer Update:**
 ```bash
@@ -717,14 +717,14 @@ Preview what would be installed without making any changes.
 
 ### Install with Dependencies
 ```bash
-bin/cake manifest install --plugin Monitor --with-dependencies
+bin/cake manifest install --plugin Monitor
 ```
 
-Installs the plugin along with its declared dependencies. The command prompts for optional dependencies and automatically installs required ones.
+Installs the plugin along with its declared dependencies: required ones automatically, optional ones with a prompt each. Add `--with-dependencies` explicitly if you prefer, `--all-deps` to skip all prompts, `--no-dependencies` to skip them entirely.
 
 ### Install All Dependencies
 ```bash
-bin/cake manifest install --plugin Monitor --with-dependencies --all-deps
+bin/cake manifest install --plugin Monitor --all-deps
 ```
 
 Installs the plugin and all dependencies without prompting, including optional dependencies.
@@ -751,7 +751,7 @@ bin/cake manifest list
 bin/cake manifest list --path plugins/MyPlugin
 ```
 
-Lists all discovered plugins with per-tag installation status (`[+]` installed, `[~]` partial, `[ ]` missing). Installed-but-unloaded packages show a `(not loaded)` marker. `--path` adds local checkouts composer does not know about (repeatable).
+Lists all discovered plugins with per-tag installation status (`[+]` installed, `[~]` partial, `[ ]` missing). Installed counts come from the registry once per operation type, so tags with several assets of one type are not multiplied. Star-repo prompts are display noise, not installable files, and are excluded from the list. Installed-but-unloaded packages show a `(not loaded)` marker. `--path` adds local checkouts composer does not know about (repeatable).
 
 ### Show Status
 ```bash
@@ -803,6 +803,8 @@ The plugin tracks installed assets in `config/manifest_registry.php` with operat
 - `append` - Bootstrap appends tracked by marker
 - `merge` - Config merges tracked by key
 - `copy-safe` - Never overwrites
+
+Identical records (same destination/source/marker/key) are never appended twice, so repeated installs cannot inflate the registry. Skipped-but-present files are recorded as installed, so a second run converges instead of reporting them missing.
 
 <a name="advanced-examples"></a>
 ## Advanced Examples

@@ -53,4 +53,25 @@ class InstallResult
     {
         $this->batchResults = $batchResults;
     }
+
+    /**
+     * Whether this result should be tracked in the registry.
+     *
+     * Successful installs are always tracked. Skipped operations are
+     * tracked when their destination file exists: the asset is present
+     * on disk (e.g. a migration copied earlier or by hand), so a second
+     * run converges instead of reporting it missing forever.
+     *
+     * @return bool
+     */
+    public function isRecordable(): bool
+    {
+        if ($this->success) {
+            return true;
+        }
+
+        return $this->status === 'skipped'
+            && $this->destination !== ''
+            && file_exists($this->destination);
+    }
 }

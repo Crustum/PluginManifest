@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Installing `--all` no longer silently skips already runtime-loaded plugins for `plugins.php` registration
 - Short provider-derived names (e.g. `Ai`) no longer poison `config/plugins.php` and crash boot via `create('Ai')`
+- Required dependencies install by default; missing required dependencies abort with a clear error instead of silent skip
+- `manifest list` counts each (type, tag) registry bucket once per tag instead of once per asset
+- `manifest list` no longer shows star-repo prompt rows
+- Registry no longer appends identical records on repeated installs
+- Skipped-but-present files are recorded as installed, so second runs converge
+- Dependency installation skips star-repo assets instead of failing with "Unknown install type"
 
 ## [1.0.2]
 

@@ -119,6 +119,7 @@ class Installer
         $results = [];
         $successCount = 0;
         $skipCount = 0;
+        $errorCount = 0;
 
         if (!is_dir($sourceDir)) {
             return new InstallResult(false, $sourceDir, $destinationDir, 'error', 'Source directory does not exist');
@@ -154,10 +155,38 @@ class Installer
                 $successCount++;
             } elseif ($result->status === 'skipped') {
                 $skipCount++;
+            } else {
+                $errorCount++;
             }
         }
 
         $message = "Installed {$successCount} migration(s), skipped {$skipCount}";
+
+        if ($errorCount > 0) {
+            $batchResult = new InstallResult(
+                false,
+                $sourceDir,
+                $destinationDir,
+                'batch-installed',
+                $message,
+            );
+            $batchResult->setBatchResults($results);
+
+            return $batchResult;
+        }
+
+        if ($successCount === 0 && $skipCount > 0) {
+            $batchResult = new InstallResult(
+                true,
+                $sourceDir,
+                $destinationDir,
+                'skipped',
+                $message,
+            );
+            $batchResult->setBatchResults($results);
+
+            return $batchResult;
+        }
 
         $batchResult = new InstallResult(
             $successCount > 0,

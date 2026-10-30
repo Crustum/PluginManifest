@@ -68,7 +68,7 @@ class ManifestInstallCommand extends Command
                 'boolean' => true,
             ])
             ->addOption('with_dependencies', [
-                'help' => 'Install plugin dependencies (prompts for optional ones)',
+                'help' => 'Install optional dependencies too, prompting for each (dependencies install by default)',
                 'boolean' => true,
             ])
             ->addOption('all_deps', [
@@ -76,7 +76,7 @@ class ManifestInstallCommand extends Command
                 'boolean' => true,
             ])
             ->addOption('no_dependencies', [
-                'help' => 'Skip dependency installation',
+                'help' => 'Skip dependency installation (required dependencies install by default)',
                 'boolean' => true,
             ])
             ->addOption('update_dependencies', [

@@ -199,7 +199,7 @@ class Installation
                 $this->displayInstallResult($io, $result);
                 $this->tallyResult($result, $successCount, $skipCount, $errorCount);
 
-                if ($result->success && !$dryRun && ($asset['type'] ?? '') !== OperationType::DEPENDENCIES) {
+                if (!$dryRun && ($asset['type'] ?? '') !== OperationType::DEPENDENCIES && $result->isRecordable()) {
                     $this->recordSuccessfulInstall($pluginName, (string)$tag, $asset, $result);
                 }
             }
@@ -295,6 +295,9 @@ class Installation
     /**
      * Record successful install into the registry.
      *
+     * Skipped-but-present results are recorded as well: the file exists
+     * on disk, so a second run converges instead of reporting it missing.
+     *
      * @param string $pluginName Plugin name
      * @param string $tag Tag
      * @param array<string, mixed> $asset Asset definition
@@ -309,7 +312,7 @@ class Installation
     ): void {
         if ($result->getBatchResults() !== null) {
             foreach ($result->getBatchResults() as $batchResult) {
-                if ($batchResult->success) {
+                if ($batchResult->isRecordable()) {
                     $this->registry->recordInstalled(
                         $pluginName,
                         $asset['type'],

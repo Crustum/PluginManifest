@@ -64,6 +64,23 @@ class DependencyInstaller
         $availablePlugins = $this->discoverAvailablePlugins();
         $dependencyInfo = $this->resolver->getDependencyInfo($dependencies);
 
+        foreach ($dependencies as $dependencyName => $dependencyConfig) {
+            if (!empty($dependencyConfig['required']) && !isset($availablePlugins[$dependencyName])) {
+                $io->error(
+                    "Required dependency '{$dependencyName}' not found. " .
+                    'Install it via composer (or scan its path with --path), then re-run the install.',
+                );
+
+                return new InstallResult(
+                    false,
+                    'dependencies',
+                    'dependencies',
+                    'error',
+                    "Required dependency '{$dependencyName}' not found",
+                );
+            }
+        }
+
         $directDeps = $this->promptForDependencies($dependencyInfo, $availablePlugins, $options, $io);
 
         if ($directDeps === []) {
@@ -175,11 +192,10 @@ class DependencyInstaller
         ConsoleIo $io,
     ): array {
         $toInstall = [];
-        $withDependencies = $options['with_dependencies'] ?? false;
         $allDeps = $options['all_deps'] ?? false;
         $dryRun = $options['dry_run'] ?? false;
 
-        if (!$withDependencies) {
+        if (!empty($options['no_dependencies'])) {
             return [];
         }
 
@@ -199,7 +215,7 @@ class DependencyInstaller
             $io->out("  {$statusIcon} <warning>{$pluginName}</warning> ({$typeLabel}){$availableLabel}{$conditionLabel} - {$info['reason']}");
 
             if (!$available) {
-                $io->out("    <error>Plugin {$pluginName} is not loaded or does not provide a manifest</error>");
+                $io->out("    <error>Plugin {$pluginName} is not installed or does not provide a manifest</error>");
                 continue;
             }
 
@@ -335,7 +351,7 @@ class DependencyInstaller
 
         $message = "Dependencies: {$successCount} installed";
         if ($skippedCount > 0) {
-            $message .= ", {$skippedCount} skipped (duplicates)";
+            $message .= ", {$skippedCount} skipped";
         }
 
         if ($errorCount > 0) {
@@ -426,9 +442,14 @@ class DependencyInstaller
 
             $successCount = 0;
             $errorCount = 0;
+            $skippedCount = 0;
 
             foreach ($assetsToInstall as $asset) {
                 if (($asset['type'] ?? '') === OperationType::DEPENDENCIES) {
+                    continue;
+                }
+
+                if (($asset['type'] ?? '') === OperationType::STAR_REPO) {
                     continue;
                 }
 
@@ -436,18 +457,23 @@ class DependencyInstaller
 
                 if ($result->success) {
                     $successCount++;
-
-                    if (!($options['dry_run'] ?? false)) {
-                        $this->recordAssetInstallation($actualPluginName, $asset, $result);
-                    }
+                } elseif ($result->status === 'skipped') {
+                    $skippedCount++;
                 } else {
                     $errorCount++;
+                }
+
+                if (!($options['dry_run'] ?? false)) {
+                    $this->recordAssetInstallation($actualPluginName, $asset, $result);
                 }
 
                 $this->displayResult($io, $result);
             }
 
             $message = "{$actualPluginName}: {$successCount} installed, {$errorCount} failed";
+            if ($skippedCount > 0) {
+                $message .= ", {$skippedCount} skipped";
+            }
 
             return new InstallResult(
                 $errorCount === 0,
@@ -562,7 +588,7 @@ class DependencyInstaller
 
         if ($result->getBatchResults() !== null) {
             foreach ($result->getBatchResults() as $batchResult) {
-                if ($batchResult->success) {
+                if ($batchResult->isRecordable()) {
                     $assetData = [
                         'destination' => $batchResult->destination,
                         'source' => $batchResult->source,
@@ -572,7 +598,11 @@ class DependencyInstaller
                     $this->manifest->recordInstalled($pluginName, $type, $tag, $assetData);
                 }
             }
-        } else {
+
+            return;
+        }
+
+        if ($result->isRecordable()) {
             $assetData = [
                 'destination' => $result->destination ?? $asset['destination'] ?? null,
                 'completed' => true,

@@ -9,6 +9,7 @@ use Cake\Console\ConsoleIo;
 use Cake\Console\ConsoleOptionParser;
 use Crustum\PluginManifest\Command\Helper\PluginDiscovery;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
+use Crustum\PluginManifest\Manifest\OperationType;
 use Override;
 
 class ManifestListCommand extends Command
@@ -129,17 +130,12 @@ class ManifestListCommand extends Command
         $installedAssets = 0;
 
         foreach ($assets as $tag => $tagAssets) {
-            $tagTotal = 0;
-            $tagInstalled = 0;
-
-            foreach ($tagAssets as $asset) {
-                $counts = $this->countAssetFiles($asset);
-                $tagTotal += $counts['total'];
-
-                $installed = $manifest->getInstalled($pluginName, $asset['type'], $tag);
-                $tagInstalled += count($installed);
+            $summary = $this->summarizeTag($tag, $tagAssets, $pluginName, $manifest);
+            if ($summary === null) {
+                continue;
             }
 
+            [$tagTotal, $tagInstalled] = [$summary['total'], $summary['installed']];
             $totalAssets += $tagTotal;
             $installedAssets += $tagInstalled;
 
@@ -157,6 +153,47 @@ class ManifestListCommand extends Command
         $totalStatus = $installedAssets === $totalAssets ? 'All installed' : "{$installedAssets}/{$totalAssets} installed";
         $io->out("  <comment>Total: {$totalStatus}</comment>");
         $io->out('');
+    }
+
+    /**
+     * Summarize installation progress for one tag.
+     *
+     * Star-repo prompts are display noise, not installable files, so they
+     * are excluded entirely. Installed records are counted once per
+     * operation type: the registry tracks whole (plugin, type, tag)
+     * buckets, so counting per asset would multiply the result.
+     *
+     * @param string $tag Tag name
+     * @param array<int, array<string, mixed>> $tagAssets Assets of one tag
+     * @param string $pluginName Plugin name
+     * @param \Crustum\PluginManifest\Manifest\ManifestRegistry $manifest Registry
+     * @return array{installed: int, total: int}|null Null when nothing countable remains
+     */
+    protected function summarizeTag(string $tag, array $tagAssets, string $pluginName, ManifestRegistry $manifest): ?array
+    {
+        $total = 0;
+        $installed = 0;
+        $countedTypes = [];
+
+        foreach ($tagAssets as $asset) {
+            $type = $asset['type'] ?? 'unknown';
+            if ($type === OperationType::STAR_REPO) {
+                continue;
+            }
+
+            $total += $this->countAssetFiles($asset)['total'];
+
+            if (!isset($countedTypes[$type])) {
+                $countedTypes[$type] = true;
+                $installed += count($manifest->getInstalled($pluginName, $type, $tag));
+            }
+        }
+
+        if ($total === 0 && $installed === 0) {
+            return null;
+        }
+
+        return ['installed' => $installed, 'total' => $total];
     }
 
     /**
