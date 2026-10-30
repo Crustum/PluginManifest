@@ -6,9 +6,8 @@ namespace Crustum\PluginManifest\Command;
 use Cake\Command\Command;
 use Cake\Console\ConsoleOptionParser;
 use Cake\Core\Plugin;
+use Crustum\PluginManifest\Command\Helper\PluginDiscovery;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
-use Crustum\PluginManifest\Manifest\ManifestResolver;
-use Exception;
 use Override;
 
 /**
@@ -74,9 +73,7 @@ class ManifestStatusCommand extends Command
         }
 
         $pluginName = (string)$pluginFilter;
-        try {
-            Plugin::getCollection()->get($pluginName);
-        } catch (Exception) {
+        if (!$this->isKnownPlugin($pluginName)) {
             $this->io->error("Plugin '{$pluginName}' not found.");
 
             return static::CODE_ERROR;
@@ -199,6 +196,24 @@ class ManifestStatusCommand extends Command
     }
 
     /**
+     * Check whether a plugin is known (loaded or discovered with a manifest).
+     *
+     * @param string $pluginName Plugin name
+     * @return bool
+     */
+    protected function isKnownPlugin(string $pluginName): bool
+    {
+        if (Plugin::getCollection()->has($pluginName)) {
+            return true;
+        }
+
+        $discovery = new PluginDiscovery();
+        $discovered = $discovery->discoverRaw();
+
+        return isset($discovered[$pluginName]);
+    }
+
+    /**
      * Discover available plugins that provide a manifest.
      *
      * @return array<string, array<string, mixed>> Plugin data keyed by plugin name
@@ -206,15 +221,13 @@ class ManifestStatusCommand extends Command
     protected function discoverAvailablePlugins(): array
     {
         $plugins = [];
+        $discovery = new PluginDiscovery();
 
-        foreach (Plugin::loaded() as $pluginName) {
-            $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = $plugin::class;
-
-            $assets = ManifestResolver::manifestFor($pluginClass);
+        foreach ($discovery->discoverRaw() as $pluginName => $data) {
+            $assets = $data['manifest'];
             if (!empty($assets)) {
                 $plugins[$pluginName] = [
-                    'class' => $pluginClass,
+                    'class' => $data['class'],
                     'assets' => $this->organizeAssetsByTag($assets, $pluginName),
                 ];
             }

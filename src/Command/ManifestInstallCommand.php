@@ -17,6 +17,7 @@ use Crustum\PluginManifest\Manifest\DependencyResolver;
 use Crustum\PluginManifest\Manifest\EnvInstaller;
 use Crustum\PluginManifest\Manifest\Installer;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
+use Crustum\PluginManifest\Manifest\PluginLoader;
 use Override;
 
 /**
@@ -65,7 +66,7 @@ class ManifestInstallCommand extends Command
                 'boolean' => true,
             ])
             ->addOption('with_dependencies', [
-                'help' => 'Install plugin dependencies (prompts for optional ones)',
+                'help' => 'Install optional dependencies too, prompting for each (dependencies install by default)',
                 'boolean' => true,
             ])
             ->addOption('all_deps', [
@@ -73,12 +74,16 @@ class ManifestInstallCommand extends Command
                 'boolean' => true,
             ])
             ->addOption('no_dependencies', [
-                'help' => 'Skip dependency installation',
+                'help' => 'Skip dependency installation (required dependencies install by default)',
                 'boolean' => true,
             ])
             ->addOption('update_dependencies', [
                 'help' => 'Update existing dependencies (re-install with --existing flag)',
                 'boolean' => true,
+            ])
+            ->addOption('path', [
+                'help' => 'Additional plugin directory to scan for manifests (repeatable)',
+                'multiple' => true,
             ]);
     }
 
@@ -122,7 +127,11 @@ class ManifestInstallCommand extends Command
         }
 
         $pluginDiscovery = new PluginDiscovery();
-        $plugins = $pluginDiscovery->discoverPublishablePlugins($this->io);
+        $plugins = $pluginDiscovery->discoverPublishablePlugins(
+            $this->io,
+            PluginDiscovery::normalizePaths($this->args->getOption('path')),
+        );
+
         if ($plugins === []) {
             $this->io->warning('No plugins with publishable assets found.');
 
@@ -138,6 +147,7 @@ class ManifestInstallCommand extends Command
             'no_dependencies' => $noDependencies,
             'update_dependencies' => $updateDependencies,
             'console_io' => $this->io,
+            'plugin_loader' => new PluginLoader(),
         ];
         $installation = $this->createInstallationHelper($installer, $manifest);
         if ($all) {

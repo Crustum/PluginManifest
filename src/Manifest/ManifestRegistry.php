@@ -45,11 +45,39 @@ class ManifestRegistry
 
         $assetData = $this->normalizePathsForStorage($assetData);
 
+        foreach ($manifest[$plugin][$operationType][$tag] as $existing) {
+            if ($this->isSameRecord($existing, $assetData)) {
+                return;
+            }
+        }
+
         $manifest[$plugin][$operationType][$tag][] = array_merge($assetData, [
             'installed_at' => date('Y-m-d H:i:s'),
         ]);
 
         $this->save($manifest);
+    }
+
+    /**
+     * Check whether a record with the same identity is already tracked.
+     *
+     * Identity is destination/source/marker/key — bookkeeping fields like
+     * `installed_at` or `completed` are ignored so repeated installs of
+     * the same asset never inflate the registry.
+     *
+     * @param array<string, mixed> $existing Stored record
+     * @param array<string, mixed> $assetData Normalized asset data
+     * @return bool
+     */
+    protected function isSameRecord(array $existing, array $assetData): bool
+    {
+        foreach (['destination', 'source', 'marker', 'key'] as $field) {
+            if (($existing[$field] ?? null) !== ($assetData[$field] ?? null)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

@@ -105,6 +105,30 @@ class ManifestRegistryTest extends TestCase
         $this->assertCount(1, $testPluginMigrations);
     }
 
+    public function testRecordInstalledSkipsDuplicates(): void
+    {
+        $asset = [
+            'destination' => '/path/to/file.php',
+            'source' => '/source/file.php',
+        ];
+
+        $this->registry->recordInstalled('TestPlugin', 'copy', 'config', $asset);
+        $this->registry->recordInstalled('TestPlugin', 'copy', 'config', $asset);
+
+        $installed = $this->registry->getInstalled('TestPlugin', 'copy', 'config');
+
+        $this->assertCount(1, $installed);
+
+        $this->registry->recordInstalled('TestPlugin', 'copy', 'config', [
+            'destination' => '/path/to/other.php',
+            'source' => '/source/other.php',
+        ]);
+
+        $installed = $this->registry->getInstalled('TestPlugin', 'copy', 'config');
+
+        $this->assertCount(2, $installed);
+    }
+
     public function testIsAppendCompleted(): void
     {
         $asset = [

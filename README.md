@@ -4,11 +4,13 @@ The **PluginManifest** plugin provides a standardized way for CakePHP plugins to
 
 This plugin enables plugin developers to distribute optional configuration files, migrations, and other assets that users can selectively install when needed.
 
-The plugin uses interface-based registration where plugins implement `ManifestInterface`, making asset distribution simple and developer-friendly with interactive selection, dry-run mode, and smart duplicate prevention.
+The plugin uses manifest-based registration where plugins expose a static `manifest()` either via `ManifestInterface` on the plugin class or a standalone `{Namespace}\Manifest\{Short}Manifest` provider class, making asset distribution simple and developer-friendly with interactive selection, dry-run mode, and smart duplicate prevention.
 
 ## Features
 
-Plugins implement the `ManifestInterface` with a static `manifest()` method to define their publishable assets. The system supports multiple operation types including copying files, appending to bootstrap, merging configurations, installing migrations, and adding environment variables.
+Plugins expose a static `manifest()` to define their publishable assets via `ManifestInterface` or a standalone manifest provider. The system supports multiple operation types including copying files, appending to bootstrap, merging configurations, installing migrations, and adding environment variables.
+
+Discovery covers loaded plugins plus composer-installed packages (via `crustum/inspector`, even when not loaded) and explicit `--path` directories. Each installed plugin is registered in `config/plugins.php` before its assets install.
 
 Migration handling is smart, automatically adding plugin namespaces to prevent class conflicts while preserving timestamps for correct ordering. Configuration merging preserves all user comments and file structure, ensuring customizations are never lost.
 
@@ -16,7 +18,7 @@ The interactive mode prompts users to select what to install, or you can install
 
 ## Requirements
 
-* PHP 8.1+
+* PHP 8.2+
 * CakePHP 5.1+
 
 ## Documentation

@@ -5,9 +5,9 @@ namespace Crustum\PluginManifest\Command;
 
 use Cake\Command\Command;
 use Cake\Console\ConsoleOptionParser;
-use Cake\Core\Plugin;
+use Crustum\PluginManifest\Command\Helper\PluginDiscovery;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
-use Crustum\PluginManifest\Manifest\ManifestResolver;
+use Crustum\PluginManifest\Manifest\OperationType;
 use Override;
 
 class ManifestListCommand extends Command
@@ -20,7 +20,11 @@ class ManifestListCommand extends Command
      */
     protected function buildOptionParser(ConsoleOptionParser $parser): ConsoleOptionParser
     {
-        return $parser;
+        return $parser
+            ->addOption('path', [
+                'help' => 'Additional plugin directory to scan for manifests (repeatable)',
+                'multiple' => true,
+            ]);
     }
 
     /**
@@ -40,7 +44,9 @@ class ManifestListCommand extends Command
     public function execute(): ?int
     {
         $manifest = new ManifestRegistry();
-        $plugins = $this->discoverPublishablePlugins();
+        $plugins = $this->discoverPublishablePlugins(
+            PluginDiscovery::normalizePaths($this->args->getOption('path')),
+        );
         if ($plugins === []) {
             $this->io->warning('No plugins with publishable assets found.');
 
@@ -59,27 +65,19 @@ class ManifestListCommand extends Command
     /**
      * Discover plugins that provide a manifest.
      *
+     * @param list<string> $extraPaths Additional plugin directories to scan
      * @return array<string, array<string, mixed>>
      */
-    protected function discoverPublishablePlugins(): array
+    protected function discoverPublishablePlugins(array $extraPaths = []): array
     {
         $plugins = [];
-        $loadedPlugins = Plugin::loaded();
+        $discovery = new PluginDiscovery();
 
-        foreach ($loadedPlugins as $pluginName) {
-            $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = $plugin::class;
-
-            $manifest = ManifestResolver::manifestFor($pluginClass);
-            if ($manifest === null) {
-                continue;
-            }
-
-            $assets = $this->organizeAssetsByTag($manifest);
-
+        foreach ($discovery->discoverRaw($extraPaths) as $pluginName => $data) {
             $plugins[$pluginName] = [
-                'class' => $pluginClass,
-                'assets' => $assets,
+                'class' => $data['class'],
+                'loaded' => $data['loaded'],
+                'assets' => $this->organizeAssetsByTag($data['manifest']),
             ];
         }
 
@@ -117,24 +115,20 @@ class ManifestListCommand extends Command
      */
     protected function displayPluginInfo(string $pluginName, array $pluginData, ManifestRegistry $manifest): void
     {
-        $this->io->out("<success>{$pluginName}</success>");
+        $loadedLabel = $pluginData['loaded'] ?? true ? '' : ' <warning>(not loaded)</warning>';
+        $this->io->out("<success>{$pluginName}</success>{$loadedLabel}");
 
         $assets = $pluginData['assets'];
         $totalAssets = 0;
         $installedAssets = 0;
 
         foreach ($assets as $tag => $tagAssets) {
-            $tagTotal = 0;
-            $tagInstalled = 0;
-
-            foreach ($tagAssets as $asset) {
-                $counts = $this->countAssetFiles($asset);
-                $tagTotal += $counts['total'];
-
-                $installed = $manifest->getInstalled($pluginName, $asset['type'], $tag);
-                $tagInstalled += count($installed);
+            $summary = $this->summarizeTag($tag, $tagAssets, $pluginName, $manifest);
+            if ($summary === null) {
+                continue;
             }
 
+            [$tagTotal, $tagInstalled] = [$summary['total'], $summary['installed']];
             $totalAssets += $tagTotal;
             $installedAssets += $tagInstalled;
 
@@ -152,6 +146,47 @@ class ManifestListCommand extends Command
         $totalStatus = $installedAssets === $totalAssets ? 'All installed' : "{$installedAssets}/{$totalAssets} installed";
         $this->io->out("  <comment>Total: {$totalStatus}</comment>");
         $this->io->out('');
+    }
+
+    /**
+     * Summarize installation progress for one tag.
+     *
+     * Star-repo prompts are display noise, not installable files, so they
+     * are excluded entirely. Installed records are counted once per
+     * operation type: the registry tracks whole (plugin, type, tag)
+     * buckets, so counting per asset would multiply the result.
+     *
+     * @param string $tag Tag name
+     * @param array<int, array<string, mixed>> $tagAssets Assets of one tag
+     * @param string $pluginName Plugin name
+     * @param \Crustum\PluginManifest\Manifest\ManifestRegistry $manifest Registry
+     * @return array{installed: int, total: int}|null Null when nothing countable remains
+     */
+    protected function summarizeTag(string $tag, array $tagAssets, string $pluginName, ManifestRegistry $manifest): ?array
+    {
+        $total = 0;
+        $installed = 0;
+        $countedTypes = [];
+
+        foreach ($tagAssets as $asset) {
+            $type = $asset['type'] ?? 'unknown';
+            if ($type === OperationType::STAR_REPO) {
+                continue;
+            }
+
+            $total += $this->countAssetFiles($asset)['total'];
+
+            if (!isset($countedTypes[$type])) {
+                $countedTypes[$type] = true;
+                $installed += count($manifest->getInstalled($pluginName, $type, $tag));
+            }
+        }
+
+        if ($total === 0 && $installed === 0) {
+            return null;
+        }
+
+        return ['installed' => $installed, 'total' => $total];
     }
 
     /**

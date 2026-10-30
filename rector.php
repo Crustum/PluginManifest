@@ -6,7 +6,6 @@ use Rector\CodeQuality\Rector\Isset_\IssetOnPropertyObjectToPropertyExistsRector
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\For_\RemoveDeadIfForeachForRector;
 use Rector\DeadCode\Rector\For_\RemoveDeadLoopRector;
-use Rector\DeadCode\Rector\ClassMethod\RemoveDuplicatedReturnSelfDocblockRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveMixedDocblockOverruledByNativeTypeRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveReturnTagIncompatibleWithNativeTypeRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessParamTagRector;
@@ -40,7 +39,6 @@ return RectorConfig::configure()
         RemoveUselessParamTagRector::class,
         RemoveUselessVarTagRector::class,
         RemoveUselessUnionReturnDocblockRector::class,
-        RemoveDuplicatedReturnSelfDocblockRector::class,
         RemoveMixedDocblockOverruledByNativeTypeRector::class,
         RemoveReturnTagIncompatibleWithNativeTypeRector::class,
         ReturnTypeFromStrictFluentReturnRector::class,

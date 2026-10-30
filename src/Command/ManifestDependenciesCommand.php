@@ -6,6 +6,7 @@ namespace Crustum\PluginManifest\Command;
 use Cake\Command\Command;
 use Cake\Console\ConsoleOptionParser;
 use Cake\Core\Plugin;
+use Crustum\PluginManifest\Command\Helper\PluginDiscovery;
 use Crustum\PluginManifest\Manifest\DependencyResolver;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
 use Crustum\PluginManifest\Manifest\ManifestResolver;
@@ -69,18 +70,9 @@ class ManifestDependenciesCommand extends Command
         }
 
         $pluginName = (string)$pluginFilter;
-        try {
-            $plugin = Plugin::getCollection()->get($pluginName);
-        } catch (Exception) {
-            $this->io->error("Plugin '{$pluginName}' not found.");
-
-            return static::CODE_ERROR;
-        }
-
-        $pluginClass = $plugin::class;
-        $assets = ManifestResolver::manifestFor($pluginClass);
+        $assets = $this->manifestForPlugin($pluginName);
         if ($assets === null) {
-            $this->io->error("Plugin '{$pluginName}' does not provide a manifest.");
+            $this->io->error("Plugin '{$pluginName}' not found or does not provide a manifest.");
 
             return static::CODE_ERROR;
         }
@@ -104,11 +96,9 @@ class ManifestDependenciesCommand extends Command
         $this->io->out('');
 
         $found = false;
-        foreach (Plugin::loaded() as $pluginName) {
-            $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = $plugin::class;
-
-            $assets = ManifestResolver::manifestFor($pluginClass);
+        $discovery = new PluginDiscovery();
+        foreach ($discovery->discoverRaw() as $pluginName => $data) {
+            $assets = $data['manifest'];
             if ($assets !== null) {
                 $hasDeps = false;
 
@@ -284,6 +274,31 @@ class ManifestDependenciesCommand extends Command
     }
 
     /**
+     * Resolve manifest ops for a plugin by name (loaded or not).
+     *
+     * @param string $pluginName Plugin name
+     * @return array<int, array<string, mixed>>|null
+     */
+    protected function manifestForPlugin(string $pluginName): ?array
+    {
+        if (Plugin::getCollection()->has($pluginName)) {
+            try {
+                $plugin = Plugin::getCollection()->get($pluginName);
+                $assets = ManifestResolver::manifestFor($plugin::class);
+                if ($assets !== null) {
+                    return $assets;
+                }
+            } catch (Exception) {
+            }
+        }
+
+        $discovery = new PluginDiscovery();
+        $discovered = $discovery->discoverRaw();
+
+        return $discovered[$pluginName]['manifest'] ?? null;
+    }
+
+    /**
      * Discover available plugins that provide a manifest.
      *
      * @return array<string, array<string, mixed>> Plugin data keyed by plugin name
@@ -291,15 +306,13 @@ class ManifestDependenciesCommand extends Command
     protected function discoverAvailablePlugins(): array
     {
         $plugins = [];
+        $discovery = new PluginDiscovery();
 
-        foreach (Plugin::loaded() as $pluginName) {
-            $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = $plugin::class;
-
-            $assets = ManifestResolver::manifestFor($pluginClass);
+        foreach ($discovery->discoverRaw() as $pluginName => $data) {
+            $assets = $data['manifest'];
             if (!empty($assets)) {
                 $plugins[$pluginName] = [
-                    'class' => $pluginClass,
+                    'class' => $data['class'],
                     'assets' => $this->organizeAssetsByTag($assets, $pluginName),
                 ];
             }

@@ -6,6 +6,7 @@ namespace Crustum\PluginManifest\Test\TestCase\Manifest;
 use Cake\TestSuite\TestCase;
 use Crustum\PluginManifest\Manifest\ManifestResolver;
 use Crustum\PluginManifest\Test\TestPlugin\Manifest\PlainManifest;
+use Crustum\PluginManifest\Test\TestPlugin\PlainLoadPlugin;
 use Crustum\PluginManifest\Test\TestPlugin\PlainPlugin;
 use Crustum\PluginManifest\Test\TestPlugin\TestPlugin;
 use stdClass;
@@ -37,5 +38,23 @@ class ManifestResolverTest extends TestCase
     {
         $this->assertNull(ManifestResolver::manifestFor(stdClass::class));
         $this->assertNull(ManifestResolver::providerClass('NoNamespace'));
+    }
+
+    public function testLoadOptionsFromProviderProps(): void
+    {
+        $this->assertSame(
+            ['bootstrap' => true, 'routes' => false, 'onlyDebug' => true],
+            ManifestResolver::loadOptions(PlainLoadPlugin::class),
+        );
+    }
+
+    public function testLoadOptionsEmptyWithoutProviderProps(): void
+    {
+        $this->assertSame([], ManifestResolver::loadOptions(PlainPlugin::class));
+    }
+
+    public function testLoadOptionsEmptyWithoutProvider(): void
+    {
+        $this->assertSame([], ManifestResolver::loadOptions(TestPlugin::class));
     }
 }

@@ -12,7 +12,8 @@
     "require": {
         "php": ">=8.5",
         "cakephp/cakephp": "6.x-dev",
-        "crustum/prompts": "2.x-dev"
+        "crustum/prompts": "2.x-dev",
+        "crustum/inspector": "2.x-dev"
     },
     "require-dev": {
         "cakephp/cakephp-codesniffer": "6.x-dev",
@@ -67,4 +68,3 @@
         "platform-check": false
     }
 }
-
