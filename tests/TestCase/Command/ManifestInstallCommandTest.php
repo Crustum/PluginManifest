@@ -8,16 +8,6 @@ use Crustum\PluginManifest\Test\TestPlugin\TestPlugin;
 
 class ManifestInstallCommandTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-    }
-
     public function testTestPluginManifestStructure(): void
     {
         $pluginClass = TestPlugin::class;

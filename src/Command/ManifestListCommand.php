@@ -7,9 +7,8 @@ use Cake\Command\Command;
 use Cake\Console\Arguments;
 use Cake\Console\ConsoleIo;
 use Cake\Console\ConsoleOptionParser;
-use Cake\Core\Plugin;
+use Crustum\PluginManifest\Command\Helper\PluginDiscovery;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
-use Crustum\PluginManifest\Manifest\ManifestResolver;
 use Override;
 
 class ManifestListCommand extends Command
@@ -22,7 +21,11 @@ class ManifestListCommand extends Command
      */
     protected function buildOptionParser(ConsoleOptionParser $parser): ConsoleOptionParser
     {
-        return $parser;
+        return $parser
+            ->addOption('path', [
+                'help' => 'Additional plugin directory to scan for manifests (repeatable)',
+                'multiple' => true,
+            ]);
     }
 
     /**
@@ -44,7 +47,9 @@ class ManifestListCommand extends Command
     public function execute(Arguments $args, ConsoleIo $io): ?int
     {
         $manifest = new ManifestRegistry();
-        $plugins = $this->discoverPublishablePlugins();
+        $plugins = $this->discoverPublishablePlugins(
+            PluginDiscovery::normalizePaths($args->getOption('path')),
+        );
 
         if ($plugins === []) {
             $io->warning('No plugins with publishable assets found.');
@@ -65,27 +70,19 @@ class ManifestListCommand extends Command
     /**
      * Discover plugins that provide a manifest.
      *
+     * @param list<string> $extraPaths Additional plugin directories to scan
      * @return array<string, array<string, mixed>>
      */
-    protected function discoverPublishablePlugins(): array
+    protected function discoverPublishablePlugins(array $extraPaths = []): array
     {
         $plugins = [];
-        $loadedPlugins = Plugin::loaded();
+        $discovery = new PluginDiscovery();
 
-        foreach ($loadedPlugins as $pluginName) {
-            $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = $plugin::class;
-
-            $manifest = ManifestResolver::manifestFor($pluginClass);
-            if ($manifest === null) {
-                continue;
-            }
-
-            $assets = $this->organizeAssetsByTag($manifest);
-
+        foreach ($discovery->discoverRaw($extraPaths) as $pluginName => $data) {
             $plugins[$pluginName] = [
-                'class' => $pluginClass,
-                'assets' => $assets,
+                'class' => $data['class'],
+                'loaded' => $data['loaded'],
+                'assets' => $this->organizeAssetsByTag($data['manifest']),
             ];
         }
 
@@ -105,9 +102,7 @@ class ManifestListCommand extends Command
         foreach ($manifest as $asset) {
             $tag = $asset['tag'] ?? 'default';
 
-            if (!isset($organized[$tag])) {
-                $organized[$tag] = [];
-            }
+            $organized[$tag] ??= [];
 
             $organized[$tag][] = $asset;
         }
@@ -126,7 +121,8 @@ class ManifestListCommand extends Command
      */
     protected function displayPluginInfo(ConsoleIo $io, string $pluginName, array $pluginData, ManifestRegistry $manifest): void
     {
-        $io->out("<success>{$pluginName}</success>");
+        $loadedLabel = $pluginData['loaded'] ?? true ? '' : ' <warning>(not loaded)</warning>';
+        $io->out("<success>{$pluginName}</success>{$loadedLabel}");
 
         $assets = $pluginData['assets'];
         $totalAssets = 0;

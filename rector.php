@@ -2,12 +2,10 @@
 
 declare(strict_types=1);
 
-use Rector\CodingStyle\Rector\Encapsed\EncapsedStringsToSprintfRector;
 use Rector\CodeQuality\Rector\Isset_\IssetOnPropertyObjectToPropertyExistsRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\For_\RemoveDeadIfForeachForRector;
 use Rector\DeadCode\Rector\For_\RemoveDeadLoopRector;
-use Rector\DeadCode\Rector\ClassMethod\RemoveDuplicatedReturnSelfDocblockRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveMixedDocblockOverruledByNativeTypeRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveReturnTagIncompatibleWithNativeTypeRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessParamTagRector;
@@ -17,7 +15,6 @@ use Rector\DeadCode\Rector\Property\RemoveUselessVarTagRector;
 use Rector\Php70\Rector\StmtsAwareInterface\IfIssetToCoalescingRector;
 use Rector\Php80\Rector\Class_\ClassPropertyAssignToConstructorPromotionRector;
 use Rector\Php81\Rector\Property\ReadOnlyPropertyRector;
-use Rector\Strict\Rector\Empty_\DisallowedEmptyRuleFixerRector;
 use Rector\TypeDeclaration\Rector\ClassMethod\ReturnNeverTypeRector;
 use Rector\TypeDeclaration\Rector\ClassMethod\ReturnTypeFromStrictFluentReturnRector;
 use Rector\TypeDeclaration\Rector\FuncCall\AddArrayFunctionClosureParamTypeRector;
@@ -32,8 +29,6 @@ return RectorConfig::configure()
     ])
     ->withSkip([
         ReadOnlyPropertyRector::class,
-        EncapsedStringsToSprintfRector::class,
-        DisallowedEmptyRuleFixerRector::class,
         ClassPropertyAssignToConstructorPromotionRector::class,
         AddClosureParamTypeForArrayMapRector::class,
         AddClosureParamTypeForArrayReduceRector::class,
@@ -44,7 +39,6 @@ return RectorConfig::configure()
         RemoveUselessParamTagRector::class,
         RemoveUselessVarTagRector::class,
         RemoveUselessUnionReturnDocblockRector::class,
-        RemoveDuplicatedReturnSelfDocblockRector::class,
         RemoveMixedDocblockOverruledByNativeTypeRector::class,
         RemoveReturnTagIncompatibleWithNativeTypeRector::class,
         ReturnTypeFromStrictFluentReturnRector::class,

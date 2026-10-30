@@ -8,6 +8,7 @@ Plugin asset installation and publishing system for CakePHP 5.x applications.
 - [Installation](#installation)
 - [Basic Usage](#basic-usage)
   - [Implementing ManifestInterface](#implementing-manifestinterface)
+  - [Standalone Manifest Providers](#standalone-manifest-providers)
   - [Using ManifestTrait Helpers](#using-manifesttrait-helpers)
   - [Installing Assets](#installing-assets)
 - [Operation Types](#operation-types)
@@ -98,8 +99,49 @@ class YourPlugin extends BasePlugin implements ManifestInterface
 }
 ```
 
+<a name="standalone-manifest-providers"></a>
+### Standalone Manifest Providers
+
+New plugins should prefer a standalone provider over the legacy interface: a plain class following the `{Namespace}\Manifest\{Short}Manifest` convention with a static `manifest()` method. For `Crustum\Ai\AiPlugin` the provider is `Crustum\Ai\Manifest\AiManifest`.
+
+Resolution order in `ManifestResolver::manifestFor()`: plugin class implementing `ManifestInterface` first, standalone provider as fallback. Both are read without instantiating anything.
+
+Providers keep the plugin loadable and runnable without this package installed: use the dependency-free `ManifestOps` builders (same shapes as the `ManifestTrait` helpers) and keep all package references inside method bodies, which only execute when the installer and therefore this package is present:
+
+```php
+<?php
+namespace YourPlugin\Manifest;
+
+use Crustum\PluginManifest\Manifest\ManifestOps;
+
+final class YourPluginManifest
+{
+    protected static bool $bootstrap = true;
+    protected static bool $routes = true;
+
+    /** @return array<int, array<string, mixed>> */
+    public static function manifest(): array
+    {
+        $pluginPath = dirname(__DIR__, 2);
+
+        return ManifestOps::manifestConfig(
+            'YourPlugin',
+            $pluginPath . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'your_plugin.php',
+            CONFIG . 'your_plugin.php',
+            false,
+        );
+    }
+}
+```
+
+Provider load props declare `config/plugins.php` registration options (see [Plugin Loading](#plugin-loading)): `$bootstrap`, `$routes`, `$middleware`, `$console`, `$services` (written as-is when present) plus `$dev` (→ `onlyDebug`) and `$cli` (→ `onlyCli`). No provider or no props means a plain `[]` entry, exactly like core defaults. Plugin classes themselves never carry load options.
+
 <a name="using-manifesttrait-helpers"></a>
 ### Using ManifestTrait Helpers
+
+> [!NOTE]
+> The interface approach above is legacy. New plugins should use a standalone
+> manifest provider instead. See [Standalone Manifest Providers](#standalone-manifest-providers).
 
 The `ManifestTrait` provides convenient helper methods for common asset types:
 
@@ -553,8 +595,8 @@ Please resolve the circular dependency before installation.
 ```
 Error: Required dependency 'CorePlugin' not found.
 
-The plugin is either not loaded or does not implement ManifestInterface.
-Please ensure the plugin is installed and loaded in your application.
+The plugin is either not installed or does not provide a manifest.
+Please ensure the plugin is installed (loaded or composer-installed) in your application.
 ```
 
 ### Dependency Best Practices
@@ -625,7 +667,32 @@ Installs only assets with the specified tag.
 bin/cake manifest install --all
 ```
 
-Installs assets from all plugins implementing `ManifestInterface`.
+Installs assets from all discovered plugins (loaded, composer-installed, and `--path` directories).
+
+### Scan Additional Paths
+```bash
+bin/cake manifest install --path plugins/MyPlugin
+bin/cake manifest list --path plugins/MyPlugin
+```
+
+Discovers manifests in local plugin checkouts that composer does not know about (e.g. plain `plugins/*` directories wired only through the root `composer.json` PSR-4 map). Repeatable. Composer-installed `cakephp-plugin` packages are found automatically via Inspector, no flag needed, including ones not loaded yet (shown as `(not loaded)` in `manifest list`).
+
+<a name="plugin-loading"></a>
+### Plugin Loading
+
+Each installed plugin including dependencies, in installation order is registered in `config/plugins.php` **before** its assets install. The write mirrors the core `plugin load` command (`Hash::normalize` + VarExporter/`var_export` fallback). Registration is file-first: only the file content decides, so even runtime-loaded plugins get persisted; already registered plugins are skipped. One confirmation per run (`--all-deps` and `--dry-run` never prompt; `--dry-run` only previews). Registration is file-only, the running process picks it up on the next run.
+
+Load options come from the manifest provider using boolean props on the `{Namespace}\Manifest\{Short}Manifest` class:
+
+```php
+final class MonitorManifest
+{
+    protected static bool $bootstrap = true;
+    protected static bool $routes = true;
+}
+```
+
+Supported props: `$bootstrap`, `$routes`, `$middleware`, `$console`, `$services` (written as-is when present) plus `$dev` → `onlyDebug` and `$cli` → `onlyCli`. No provider or no props means a plain `[]` entry, exactly like core defaults. Plugin classes themselves never carry load options.
 
 ### Force Overwrite
 ```bash
@@ -677,6 +744,31 @@ bin/cake manifest install --plugin Monitor --update-dependencies
 Re-installs existing dependencies to pick up new migrations or configuration changes after composer updates. This uses the `--existing` flag internally to update previously installed assets while adding new ones. Particularly useful when dependency plugins receive updates that add new migrations or configuration options.
 
 **Use case:** After running `composer update`, dependent plugins may have new migrations or configuration files. Use this command to update all dependency assets without reinstalling the parent plugin itself.
+
+### List Plugins
+```bash
+bin/cake manifest list
+bin/cake manifest list --path plugins/MyPlugin
+```
+
+Lists all discovered plugins with per-tag installation status (`[+]` installed, `[~]` partial, `[ ]` missing). Installed-but-unloaded packages show a `(not loaded)` marker. `--path` adds local checkouts composer does not know about (repeatable).
+
+### Show Status
+```bash
+bin/cake manifest status --all
+bin/cake manifest status --plugin Monitor --dependencies
+```
+
+Shows asset installation state from the registry: `--all` for every tracked plugin, `--plugin` for one (loaded or discovered). `--dependencies` adds dependency installation state and reverse dependents (`Used By`).
+
+### Show Dependencies
+```bash
+bin/cake manifest dependencies
+bin/cake manifest dependencies --plugin Monitor --status
+bin/cake manifest dependencies --plugin Monitor --tree --status
+```
+
+Shows declared plugin dependencies (required vs optional, tags, reason). `--tree` resolves the full transitive tree in installation order (circular dependencies abort with the chain). `--status` adds installed/not-installed state from the registry.
 
 <a name="tag-system"></a>
 ## Tag System
@@ -841,18 +933,18 @@ Generates:
 
 ### 1. Plugin Discovery
 
-The command scans all loaded plugins for those implementing `ManifestInterface`:
+Discovery merges three sources, with loaded plugins winning on class collisions:
+
+1. Loaded plugins (`Plugin::loaded()`).
+2. Composer-installed `cakephp-plugin` packages via Inspector (`ProjectScan::scan(ROOT)->php()->cakePluginDetails()`), which resolves plugin classes and Cake names without loading them. This covers packages that are installed but not loaded yet.
+3. Explicit `--path` directories for local checkouts composer does not know about.
+
+Each discovered class is resolved through `ManifestResolver::manifestFor()`, which supports both the `ManifestInterface` contract and standalone `{Namespace}\Manifest\{Short}Manifest` providers:
 
 ```php
-foreach (Plugin::loaded() as $pluginName) {
-    $plugin = Plugin::getCollection()->get($pluginName);
-    $pluginClass = get_class($plugin);
-
-    if (is_subclass_of($pluginClass, ManifestInterface::class)) {
-        $assets = $pluginClass::manifest();
-        // Process assets
-    }
-}
+$discovery = new PluginDiscovery();
+$plugins = $discovery->discoverPublishablePlugins($io, $extraPaths);
+// $plugins['Monitor'] = ['class' => ..., 'loaded' => true, 'assets' => [...]];
 ```
 
 ### 2. Asset Organization

@@ -19,6 +19,7 @@ use Crustum\PluginManifest\Manifest\DependencyResolver;
 use Crustum\PluginManifest\Manifest\EnvInstaller;
 use Crustum\PluginManifest\Manifest\Installer;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
+use Crustum\PluginManifest\Manifest\PluginLoader;
 use Override;
 
 /**
@@ -81,6 +82,10 @@ class ManifestInstallCommand extends Command
             ->addOption('update_dependencies', [
                 'help' => 'Update existing dependencies (re-install with --existing flag)',
                 'boolean' => true,
+            ])
+            ->addOption('path', [
+                'help' => 'Additional plugin directory to scan for manifests (repeatable)',
+                'multiple' => true,
             ]);
     }
 
@@ -129,7 +134,10 @@ class ManifestInstallCommand extends Command
         }
 
         $pluginDiscovery = new PluginDiscovery();
-        $plugins = $pluginDiscovery->discoverPublishablePlugins($io);
+        $plugins = $pluginDiscovery->discoverPublishablePlugins(
+            $io,
+            PluginDiscovery::normalizePaths($args->getOption('path')),
+        );
 
         if ($plugins === []) {
             $io->warning('No plugins with publishable assets found.');
@@ -146,6 +154,7 @@ class ManifestInstallCommand extends Command
             'no_dependencies' => $noDependencies,
             'update_dependencies' => $updateDependencies,
             'console_io' => $io,
+            'plugin_loader' => new PluginLoader(),
         ];
 
         $installation = $this->createInstallationHelper($installer, $manifest);

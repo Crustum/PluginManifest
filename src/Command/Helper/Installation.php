@@ -7,7 +7,9 @@ use Cake\Console\ConsoleIo;
 use Crustum\PluginManifest\Manifest\Installer;
 use Crustum\PluginManifest\Manifest\InstallResult;
 use Crustum\PluginManifest\Manifest\ManifestRegistry;
+use Crustum\PluginManifest\Manifest\ManifestResolver;
 use Crustum\PluginManifest\Manifest\OperationType;
+use Crustum\PluginManifest\Manifest\PluginLoader;
 use Crustum\PluginManifest\Manifest\Tag;
 
 /**
@@ -123,6 +125,8 @@ class Installation
         $errorCount = 0;
         $dryRun = $options['dry_run'] ?? false;
 
+        $this->ensurePluginLoaded($io, $pluginName, $pluginData['class'] ?? '', $options);
+
         $assets = $pluginData['assets'];
 
         if (is_string($tagFilter)) {
@@ -214,6 +218,33 @@ class Installation
         }
 
         return $errorCount > 0 ? 1 : 0;
+    }
+
+    /**
+     * Register the plugin in config/plugins.php before installing its assets.
+     *
+     * Loading is automatic: options come from the manifest provider props
+     * (see {@see ManifestResolver::loadOptions()}), confirmation is asked
+     * once per run (skipped for `all_deps` and `dry_run`).
+     *
+     * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param string $pluginName Plugin name
+     * @param string $pluginClass Plugin class
+     * @param array<string, mixed> $options Install options
+     * @return void
+     */
+    protected function ensurePluginLoaded(ConsoleIo $io, string $pluginName, string $pluginClass, array $options): void
+    {
+        $loader = $options['plugin_loader'] ?? null;
+        if (!$loader instanceof PluginLoader) {
+            return;
+        }
+
+        $loadOptions = $pluginClass !== '' && class_exists($pluginClass)
+            ? ManifestResolver::loadOptions($pluginClass)
+            : [];
+
+        $loader->ensureLoaded($pluginName, $loadOptions, $options, $io);
     }
 
     /**

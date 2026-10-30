@@ -5,6 +5,7 @@ namespace Crustum\PluginManifest\Manifest;
 
 use Cake\Console\ConsoleIo;
 use Cake\Core\Plugin;
+use Crustum\PluginManifest\Command\Helper\PluginDiscovery;
 use Crustum\Prompts\Console\Helper\ConfirmHelper;
 use Exception;
 use InvalidArgumentException;
@@ -101,7 +102,7 @@ class DependencyInstaller
         if ($completeDependencyTree === []) {
             $io->out('<info>No transitive dependencies found.</info>');
 
-            return $this->installSelectedDependencies($directDeps, $dependencies, $options, $io, $parentPlugin);
+            return $this->installSelectedDependencies($directDeps, $dependencies, $options, $io, $parentPlugin, $availablePlugins);
         }
 
         $io->out('');
@@ -110,7 +111,7 @@ class DependencyInstaller
             $io->out('  ' . ($index + 1) . ". {$depName}");
         }
 
-        return $this->installSelectedDependencies($completeDependencyTree, $completeDependencyTree, $options, $io, $parentPlugin);
+        return $this->installSelectedDependencies($completeDependencyTree, $completeDependencyTree, $options, $io, $parentPlugin, $availablePlugins);
     }
 
     /**
@@ -121,15 +122,13 @@ class DependencyInstaller
     protected function discoverAvailablePlugins(): array
     {
         $plugins = [];
+        $discovery = new PluginDiscovery();
 
-        foreach (Plugin::loaded() as $pluginName) {
-            $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = $plugin::class;
-
-            $assets = ManifestResolver::manifestFor($pluginClass);
+        foreach ($discovery->discoverRaw() as $pluginName => $data) {
+            $assets = $data['manifest'];
             if (!empty($assets)) {
                 $plugins[$pluginName] = [
-                    'class' => $pluginClass,
+                    'class' => $data['class'],
                     'assets' => $this->organizeAssetsByTag($assets, $pluginName),
                 ];
             }
@@ -151,9 +150,7 @@ class DependencyInstaller
 
         foreach ($assets as $asset) {
             $tag = $asset['tag'] ?? 'default';
-            if (!isset($organized[$tag])) {
-                $organized[$tag] = [];
-            }
+            $organized[$tag] ??= [];
 
             $asset['plugin'] = $pluginName;
             $organized[$tag][] = $asset;
@@ -238,6 +235,7 @@ class DependencyInstaller
      * @param array<string, mixed> $options Installation options
      * @param \Cake\Console\ConsoleIo $io Console IO
      * @param string $parentPlugin Parent plugin name for tracking
+     * @param array<string, array<string, mixed>> $availablePlugins Discovered plugins with their manifest data
      * @return \Crustum\PluginManifest\Manifest\InstallResult
      */
     protected function installSelectedDependencies(
@@ -246,6 +244,7 @@ class DependencyInstaller
         array $options,
         ConsoleIo $io,
         string $parentPlugin = '',
+        array $availablePlugins = [],
     ): InstallResult {
         if ($toInstall === []) {
             return new InstallResult(
@@ -309,6 +308,7 @@ class DependencyInstaller
                 $allDependencies[$pluginName],
                 $options,
                 $io,
+                $availablePlugins,
             );
 
             $results[] = $result;
@@ -361,6 +361,7 @@ class DependencyInstaller
      * @param array<string, mixed> $dependencyConfig Dependency configuration
      * @param array<string, mixed> $options Installation options
      * @param \Cake\Console\ConsoleIo $io Console IO
+     * @param array<string, array<string, mixed>> $availablePlugins Discovered plugins with their manifest data
      * @return \Crustum\PluginManifest\Manifest\InstallResult
      */
     protected function installSinglePluginDependency(
@@ -368,10 +369,24 @@ class DependencyInstaller
         array $dependencyConfig,
         array $options,
         ConsoleIo $io,
+        array $availablePlugins = [],
     ): InstallResult {
         try {
-            $plugin = Plugin::getCollection()->get($pluginName);
-            $pluginClass = $plugin::class;
+            $pluginClass = $availablePlugins[$pluginName]['class'] ?? null;
+            if (!is_string($pluginClass) || $pluginClass === '' || !class_exists($pluginClass)) {
+                if (!Plugin::getCollection()->has($pluginName)) {
+                    return new InstallResult(
+                        false,
+                        $pluginName,
+                        $pluginName,
+                        'error',
+                        "Plugin '{$pluginName}' not found.",
+                    );
+                }
+
+                $plugin = Plugin::getCollection()->get($pluginName);
+                $pluginClass = $plugin::class;
+            }
 
             $assets = ManifestResolver::manifestFor($pluginClass);
             if ($assets === null) {
@@ -386,6 +401,16 @@ class DependencyInstaller
 
             $actualPluginName = $this->getActualPluginName($pluginClass, $pluginName);
             $organizedAssets = $this->organizeAssetsByTag($assets, $actualPluginName);
+
+            $loader = $options['plugin_loader'] ?? null;
+            if ($loader instanceof PluginLoader) {
+                $loader->ensureLoaded(
+                    $actualPluginName,
+                    ManifestResolver::loadOptions($pluginClass),
+                    $options,
+                    $io,
+                );
+            }
 
             $tagsToInstall = $dependencyConfig['tags'] ?? null;
             if ($tagsToInstall === null) {
