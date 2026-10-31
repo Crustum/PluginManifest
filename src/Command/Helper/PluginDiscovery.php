@@ -9,6 +9,7 @@ use Crustum\Inspector\CakePlugin;
 use Crustum\Inspector\ProjectScan;
 use Crustum\PluginManifest\Manifest\ManifestResolver;
 use Exception;
+use ReflectionClass;
 use Throwable;
 
 /**
@@ -92,7 +93,7 @@ class PluginDiscovery
         }
 
         foreach ($this->inspectorDetails($extraPaths, $basePath, $io) as $detail) {
-            $pluginClass = $detail->pluginClass();
+            $pluginClass = self::canonicalClass($detail->pluginClass());
             if ($pluginClass === '' || !class_exists($pluginClass)) {
                 continue;
             }
@@ -127,6 +128,11 @@ class PluginDiscovery
     /**
      * Derive the display name for an Inspector-discovered plugin.
      *
+     * Canonicalizes the class casing first: Inspector 1.0.3 may return a
+     * miscased composer-name guess (PHP class names are case-insensitive,
+     * Cake plugin names are not), which would otherwise derive a wrong
+     * namespace-path key (e.g. `Crustum/Blazecast` vs `Crustum/BlazeCast`).
+     *
      * @param \Crustum\Inspector\CakePlugin $detail Inspector plugin detail
      * @return string
      */
@@ -137,7 +143,7 @@ class PluginDiscovery
             return $name;
         }
 
-        $class = $detail->pluginClass();
+        $class = self::canonicalClass($detail->pluginClass());
         $position = strrpos($class, '\\');
         if ($position !== false) {
             return str_replace('\\', '/', substr($class, 0, $position));
@@ -187,6 +193,32 @@ class PluginDiscovery
         }
 
         return null;
+    }
+
+    /**
+     * Canonical plugin class name with declared casing.
+     *
+     * Guessed names may differ in letter case (PHP class names and some
+     * filesystems are case-insensitive). Reflection reports the casing
+     * from the class declaration, so namespace-derived Cake names never
+     * inherit a miscased guess.
+     *
+     * @param string $class Resolved plugin class name
+     * @return string Canonical plugin class name
+     */
+    protected static function canonicalClass(string $class): string
+    {
+        if ($class === '' || !class_exists($class)) {
+            return $class;
+        }
+
+        try {
+            $canonical = (new ReflectionClass($class))->getName();
+        } catch (Throwable) {
+            return $class;
+        }
+
+        return class_exists($canonical) ? $canonical : $class;
     }
 
     /**

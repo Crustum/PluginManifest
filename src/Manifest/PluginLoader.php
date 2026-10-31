@@ -5,6 +5,7 @@ namespace Crustum\PluginManifest\Manifest;
 
 use Brick\VarExporter\VarExporter;
 use Cake\Console\ConsoleIo;
+use Cake\Core\Plugin;
 use Cake\Utility\Hash;
 use Crustum\Prompts\Console\Helper\ConfirmHelper;
 use Throwable;
@@ -44,6 +45,9 @@ class PluginLoader
      *
      * File-first: a plugin already present in `config/plugins.php` is
      * skipped, anything else is registered (regardless of runtime state).
+     * A plugin already loaded at runtime is also skipped — re-adding it
+     * would only duplicate the entry. The runtime check uses `has()` which
+     * is side-effect free (unlike `get()`, which would autoload).
      *
      * @param string $pluginName CakePHP plugin name
      * @param array<string, mixed> $loadOptions Plugin options (hook flags like core `plugin load`)
@@ -57,6 +61,10 @@ class PluginLoader
         array $options,
         ?ConsoleIo $io = null,
     ): InstallResult {
+        if (Plugin::getCollection()->has($pluginName)) {
+            return new InstallResult(true, $pluginName, $pluginName, 'skipped', 'Already loaded');
+        }
+
         if ($options['dry_run'] ?? false) {
             if ($io instanceof ConsoleIo) {
                 $io->out("  <info>[DRY]</info> Would register <warning>{$pluginName}</warning> in config/plugins.php");
@@ -131,6 +139,18 @@ class PluginLoader
 
         if (array_key_exists($pluginName, $config)) {
             return new InstallResult(true, $pluginName, $configFile, 'skipped', 'Already registered');
+        }
+
+        foreach (array_keys($config) as $existing) {
+            if (is_string($existing) && strcasecmp($existing, $pluginName) === 0) {
+                if ($io instanceof ConsoleIo) {
+                    $io->warning(
+                        "Plugin `{$pluginName}` matches existing `{$existing}` except for letter case — skipping.",
+                    );
+                }
+
+                return new InstallResult(true, $pluginName, $configFile, 'skipped', 'Already registered (case-variant)');
+            }
         }
 
         $config[$pluginName] = $loadOptions;
